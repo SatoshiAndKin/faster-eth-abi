@@ -70,10 +70,9 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           python - <<'PY'
-          import importlib
-          import importlib.machinery
-          module = importlib.import_module("faster_eth_abi._decoding")
-          assert isinstance(module.__loader__, importlib.machinery.ExtensionFileLoader), module.__file__
+          from importlib.machinery import ExtensionFileLoader
+          import faster_eth_abi._decoding as module
+          assert isinstance(module.__loader__, ExtensionFileLoader), module.__file__
           print(module.__file__)
           PY
 
