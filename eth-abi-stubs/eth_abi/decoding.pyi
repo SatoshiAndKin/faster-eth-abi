@@ -61,15 +61,7 @@ class HeadTailDecoder(BaseDecoder[T]):
 
     is_dynamic: bool
     tail_decoder: Final[Incomplete]
-    def __init__(
-        self,
-        tail_decoder: (
-            HeadTailDecoder[T]
-            | SizedArrayDecoder[T]
-            | DynamicArrayDecoder[T]
-            | ByteStringDecoder[T]
-        ),
-    ) -> None: ...
+    def __init__(self, tail_decoder: BaseDecoder[T]) -> None: ...
     def decode(self, stream: ContextFramesBytesIO) -> T: ...
     __call__ = decode
 
