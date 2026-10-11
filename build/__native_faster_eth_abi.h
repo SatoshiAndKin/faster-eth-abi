@@ -148,10 +148,6 @@ typedef struct {
     PyObject *___mypyc_env__;
     PyObject *_old_from_type_str;
     PyObject *_new_from_type_str;
-    PyObject *_expected_base;
-    char _with_arrlist;
-    char _None;
-    PyObject *_decorator;
 } faster_eth_abi___from_type_str___decorator_parse_type_str_envObject;
 
 typedef struct {
@@ -211,7 +207,6 @@ typedef struct {
     PyObject *___mypyc_self__;
     PyObject *_scaling_factor;
     PyObject *_f;
-    CPyTagged _places;
 } faster_eth_abi___utils___numeric___scale_places_envObject;
 
 typedef struct {
