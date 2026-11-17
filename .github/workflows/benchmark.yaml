@@ -33,6 +33,10 @@ on:
           - codspeed
           - comparison
 
+concurrency:
+  group: pr-ci-benchmark.yaml-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   build-wheel:
     name: Build wheel for Python3.14
