@@ -65,7 +65,12 @@ jobs:
     needs: build-wheel
     name: Run CodSpeed Benchmarks
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.run-type == 'both' || github.event.inputs.run-type == '' || github.event.inputs.run-type == 'codspeed' }}
+    # CodSpeed uploads require repository enrollment. Keep them opt-in on this fork.
+    if: >-
+      ${{ vars.CODSPEED_ENABLED == 'true' &&
+          (github.event.inputs.run-type == 'both' ||
+           github.event.inputs.run-type == '' ||
+           github.event.inputs.run-type == 'codspeed') }}
     strategy:
       fail-fast: false
       matrix:
