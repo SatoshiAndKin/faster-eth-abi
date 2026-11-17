@@ -159,9 +159,9 @@ jobs:
           echo "Testing gh CLI version:"
           gh --version || echo "gh CLI not found"
           echo "Testing gh API access to repo:"
-          gh api repos/${GITHUB_REPOSITORY} || echo "gh api repo failed"
+          gh api "repos/${GITHUB_REPOSITORY}" || echo "gh api repo failed"
           echo "Testing gh API access to workflow runs:"
-          gh api repos/${GITHUB_REPOSITORY}/actions/runs || echo "gh api actions/runs failed"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs" || echo "gh api actions/runs failed"
 
       - name: Exit early if newer workflow run exists (same branch only)
         env:
@@ -171,7 +171,7 @@ jobs:
         run: |
           set -e
           # List all in-progress runs for this branch (algorithmic repo)
-          runs=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs \
+          runs=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs" \
             -F branch="$BRANCH_NAME" \
             -F status=in_progress \
             --jq ".workflow_runs | map(select(.id != ${CURRENT_RUN_ID} and .status == \"in_progress\" and .conclusion == null))")
@@ -204,17 +204,18 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin ${{ github.head_ref || github.ref_name }}
-          git checkout ${{ github.head_ref || github.ref_name }}
+          git fetch origin "$BRANCH_NAME"
+          git checkout "$BRANCH_NAME"
           git add benchmarks/results/*.md
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "Update benchmark results [skip ci]"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            git push origin "HEAD:$BRANCH_NAME"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
       - name: Upload Markdown Benchmark Results
         uses: actions/upload-artifact@v7
