@@ -65,7 +65,12 @@ jobs:
     needs: build-wheel
     name: Run CodSpeed Benchmarks
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.run-type == 'both' || github.event.inputs.run-type == '' || github.event.inputs.run-type == 'codspeed' }}
+    # CodSpeed uploads require repository enrollment. Keep them opt-in on this fork.
+    if: >-
+      ${{ vars.CODSPEED_ENABLED == 'true' &&
+          (github.event.inputs.run-type == 'both' ||
+           github.event.inputs.run-type == '' ||
+           github.event.inputs.run-type == 'codspeed') }}
     strategy:
       fail-fast: false
       matrix:
@@ -113,10 +118,24 @@ jobs:
           run: pytest --codspeed -k "test_faster_" --test-group=${{ matrix.shard }} --test-group-count=10 benchmarks/
 
   comparison-benchmark:
-    name: Run Comparison Benchmarks
+    name: Compare ${{ matrix.suite }}
     runs-on: ubuntu-latest
     needs: build-wheel
     if: ${{ github.event.inputs.run-type == 'both' || github.event.inputs.run-type == '' || github.event.inputs.run-type == 'comparison' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: abi-encoding
+            pytest-args: benchmarks/test_abi_benchmarks.py -k "test_encode or test_faster_encode"
+          - suite: abi-decoding
+            pytest-args: benchmarks/test_abi_benchmarks.py -k "test_decode or test_faster_decode"
+          - suite: abi-predicates
+            pytest-args: >-
+              benchmarks/test_abi_benchmarks.py
+              -k "not (test_encode or test_faster_encode or test_decode or test_faster_decode)"
+          - suite: other-modules
+            pytest-args: benchmarks/ --ignore=benchmarks/test_abi_benchmarks.py
     steps:
       - name: Checkout benchmarks
         uses: actions/checkout@v7
@@ -159,9 +178,9 @@ jobs:
           echo "Testing gh CLI version:"
           gh --version || echo "gh CLI not found"
           echo "Testing gh API access to repo:"
-          gh api repos/${GITHUB_REPOSITORY} || echo "gh api repo failed"
+          gh api "repos/${GITHUB_REPOSITORY}" || echo "gh api repo failed"
           echo "Testing gh API access to workflow runs:"
-          gh api repos/${GITHUB_REPOSITORY}/actions/runs || echo "gh api actions/runs failed"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs" || echo "gh api actions/runs failed"
 
       - name: Exit early if newer workflow run exists (same branch only)
         env:
@@ -171,7 +190,7 @@ jobs:
         run: |
           set -e
           # List all in-progress runs for this branch (algorithmic repo)
-          runs=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs \
+          runs=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs" \
             -F branch="$BRANCH_NAME" \
             -F status=in_progress \
             --jq ".workflow_runs | map(select(.id != ${CURRENT_RUN_ID} and .status == \"in_progress\" and .conclusion == null))")
@@ -182,16 +201,55 @@ jobs:
           fi
 
       - name: Run Pytest Benchmark & Save Output
-        run: pytest --benchmark-only --benchmark-json=benchmark.json benchmarks/
+        env:
+          PYTEST_ADDOPTS: >-
+            --benchmark-only --benchmark-json=benchmark.json ${{ matrix.pytest-args }}
+        run: pytest
+
+      - name: Upload Comparison Partition
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-benchmark-part-${{ matrix.suite }}
+          path: benchmark.json
+          if-no-files-found: error
+          retention-days: 1
+
+  comparison-report:
+    name: Run Comparison Benchmarks
+    runs-on: ubuntu-latest
+    needs: comparison-benchmark
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            benchmarks/results/
+            scripts/benchmark/
+
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Download Comparison Partitions
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pytest-benchmark-part-*
+          path: benchmark-parts
 
       - name: Upload Pytest Benchmark Results
         uses: actions/upload-artifact@v7
         with:
           name: pytest-benchmark-results
-          path: benchmark.json
+          path: benchmark-parts/
+          if-no-files-found: error
 
       - name: Parse Pytest Benchmark Output
-        run: python scripts/benchmark/parse_benchmark_output.py benchmark.json pytest_benchmark_results.json
+        run: >-
+          python scripts/benchmark/parse_benchmark_output.py
+          benchmark-parts/pytest-benchmark-part-abi-encoding/benchmark.json
+          pytest_benchmark_results.json --additional
+          benchmark-parts/pytest-benchmark-part-abi-decoding/benchmark.json
+          benchmark-parts/pytest-benchmark-part-abi-predicates/benchmark.json
+          benchmark-parts/pytest-benchmark-part-other-modules/benchmark.json
 
       - name: Compare Pytest Benchmark Results
         run: python scripts/benchmark/compare_benchmark_results.py pytest_benchmark_results.json pytest_benchmark_diff.json
@@ -204,17 +262,18 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin ${{ github.head_ref || github.ref_name }}
-          git checkout ${{ github.head_ref || github.ref_name }}
+          git fetch origin "$BRANCH_NAME"
+          git checkout "$BRANCH_NAME"
           git add benchmarks/results/*.md
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "Update benchmark results [skip ci]"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            git push origin "HEAD:$BRANCH_NAME"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
       - name: Upload Markdown Benchmark Results
         uses: actions/upload-artifact@v7
@@ -223,6 +282,7 @@ jobs:
           path: benchmarks/results/*.md
 
       - name: Upload Pytest Benchmark Diff
+        id: benchmark-diff
         uses: actions/upload-artifact@v7
         with:
           name: pytest-benchmark-diff
@@ -230,6 +290,8 @@ jobs:
 
       - name: Post Pytest Benchmark Diff as PR Comment
         uses: actions/github-script@v9
+        env:
+          BENCHMARK_DIFF_URL: ${{ steps.benchmark-diff.outputs.artifact-url }}
         with:
           script: |
             const fs = require('fs');
@@ -268,7 +330,12 @@ jobs:
               }
               body += '\n';
             }
-            github.rest.issues.createComment({
+            if (body.length > 65536) {
+              body = '### Pytest Benchmark Diff\n\n' +
+                `[Download the full comparison](${process.env.BENCHMARK_DIFF_URL}). ` +
+                'The report exceeds GitHub’s comment length limit.';
+            }
+            await github.rest.issues.createComment({
               ...context.repo,
               issue_number: context.issue.number,
               body
