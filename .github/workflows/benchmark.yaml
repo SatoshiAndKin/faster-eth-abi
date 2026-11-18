@@ -229,6 +229,7 @@ jobs:
           path: benchmarks/results/*.md
 
       - name: Upload Pytest Benchmark Diff
+        id: benchmark-diff
         uses: actions/upload-artifact@v7
         with:
           name: pytest-benchmark-diff
@@ -236,6 +237,8 @@ jobs:
 
       - name: Post Pytest Benchmark Diff as PR Comment
         uses: actions/github-script@v9
+        env:
+          BENCHMARK_DIFF_URL: ${{ steps.benchmark-diff.outputs.artifact-url }}
         with:
           script: |
             const fs = require('fs');
@@ -274,7 +277,12 @@ jobs:
               }
               body += '\n';
             }
-            github.rest.issues.createComment({
+            if (body.length > 65536) {
+              body = '### Pytest Benchmark Diff\n\n' +
+                `[Download the full comparison](${process.env.BENCHMARK_DIFF_URL}). ` +
+                'The report exceeds GitHub’s comment length limit.';
+            }
+            await github.rest.issues.createComment({
               ...context.repo,
               issue_number: context.issue.number,
               body
