@@ -118,10 +118,24 @@ jobs:
           run: pytest --codspeed -k "test_faster_" --test-group=${{ matrix.shard }} --test-group-count=10 benchmarks/
 
   comparison-benchmark:
-    name: Run Comparison Benchmarks
+    name: Compare ${{ matrix.suite }}
     runs-on: ubuntu-latest
     needs: build-wheel
     if: ${{ github.event.inputs.run-type == 'both' || github.event.inputs.run-type == '' || github.event.inputs.run-type == 'comparison' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: abi-encoding
+            pytest-args: benchmarks/test_abi_benchmarks.py -k "test_encode or test_faster_encode"
+          - suite: abi-decoding
+            pytest-args: benchmarks/test_abi_benchmarks.py -k "test_decode or test_faster_decode"
+          - suite: abi-predicates
+            pytest-args: >-
+              benchmarks/test_abi_benchmarks.py
+              -k "not (test_encode or test_faster_encode or test_decode or test_faster_decode)"
+          - suite: other-modules
+            pytest-args: benchmarks/ --ignore=benchmarks/test_abi_benchmarks.py
     steps:
       - name: Checkout benchmarks
         uses: actions/checkout@v7
@@ -187,16 +201,55 @@ jobs:
           fi
 
       - name: Run Pytest Benchmark & Save Output
-        run: pytest --benchmark-only --benchmark-json=benchmark.json benchmarks/
+        env:
+          PYTEST_ADDOPTS: >-
+            --benchmark-only --benchmark-json=benchmark.json ${{ matrix.pytest-args }}
+        run: pytest
+
+      - name: Upload Comparison Partition
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-benchmark-part-${{ matrix.suite }}
+          path: benchmark.json
+          if-no-files-found: error
+          retention-days: 1
+
+  comparison-report:
+    name: Run Comparison Benchmarks
+    runs-on: ubuntu-latest
+    needs: comparison-benchmark
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            benchmarks/results/
+            scripts/benchmark/
+
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Download Comparison Partitions
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pytest-benchmark-part-*
+          path: benchmark-parts
 
       - name: Upload Pytest Benchmark Results
         uses: actions/upload-artifact@v7
         with:
           name: pytest-benchmark-results
-          path: benchmark.json
+          path: benchmark-parts/
+          if-no-files-found: error
 
       - name: Parse Pytest Benchmark Output
-        run: python scripts/benchmark/parse_benchmark_output.py benchmark.json pytest_benchmark_results.json
+        run: >-
+          python scripts/benchmark/parse_benchmark_output.py
+          benchmark-parts/pytest-benchmark-part-abi-encoding/benchmark.json
+          pytest_benchmark_results.json --additional
+          benchmark-parts/pytest-benchmark-part-abi-decoding/benchmark.json
+          benchmark-parts/pytest-benchmark-part-abi-predicates/benchmark.json
+          benchmark-parts/pytest-benchmark-part-other-modules/benchmark.json
 
       - name: Compare Pytest Benchmark Results
         run: python scripts/benchmark/compare_benchmark_results.py pytest_benchmark_results.json pytest_benchmark_diff.json

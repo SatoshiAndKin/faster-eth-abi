@@ -6,12 +6,13 @@ Parses the JSON file, finds all test function results, and writes a JSON file
 mapping submodules (e.g., Python submodules like faster_eth_abi.encoding) to groups and their test functions and results.
 
 Usage:
-    python parse_benchmark_output.py <benchmark.json> [output.json]
+    python parse_benchmark_output.py <benchmark.json> [output.json] [--additional <part.json> ...]
 """
 
+import argparse
 import json
 import re
-import sys
+from pathlib import Path
 from typing import (
     Any,
 )
@@ -66,17 +67,33 @@ def parse_pytest_benchmark_json(
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("Usage: python parse_benchmark_output.py <benchmark.json> [output.json]")
-        sys.exit(1)
-    infile = sys.argv[1]
-    outfile = sys.argv[2] if len(sys.argv) > 2 else "benchmark_results.json"
-    with open(infile) as f:
-        data = json.load(f)
-    results = parse_pytest_benchmark_json(data)
-    with open(outfile, "w") as f:
+    parser = argparse.ArgumentParser(
+        description="Extract and combine pytest benchmark results"
+    )
+    parser.add_argument("benchmark", type=Path)
+    parser.add_argument(
+        "output", type=Path, nargs="?", default=Path("benchmark_results.json")
+    )
+    parser.add_argument("--additional", type=Path, nargs="+", default=[])
+    args = parser.parse_args()
+
+    results: dict[str, dict[str, dict[str, Any]]] = {}
+    for infile in [args.benchmark, *args.additional]:
+        with infile.open() as f:
+            partition = parse_pytest_benchmark_json(json.load(f))
+        for submodule, groups in partition.items():
+            merged_groups = results.setdefault(submodule, {})
+            overlap = merged_groups.keys() & groups.keys()
+            if overlap:
+                raise ValueError(
+                    f"Benchmark groups occur in multiple partitions: "
+                    f"{submodule}: {sorted(overlap)}"
+                )
+            merged_groups.update(groups)
+
+    with args.output.open("w") as f:
         json.dump(results, f, indent=2)
-    print(f"Parsed results written to {outfile}")
+    print(f"Parsed results written to {args.output}")
 
 
 if __name__ == "__main__":
