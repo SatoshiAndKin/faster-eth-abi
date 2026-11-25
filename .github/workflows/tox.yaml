@@ -8,6 +8,7 @@ on:
       - 'faster_eth_abi/**.py'
       - 'tests/**.py'
       - '.github/workflows/tox.yaml'
+      - '.github/workflows/tox-reviewed-linux.yaml'
       - 'pyproject.toml'
       - 'setup.py'
       - 'tox.ini'
@@ -33,6 +34,9 @@ jobs:
         pyminor: ["10", "11", "12", "13", "13t", "14", "14t"]
         installmode: [source, sdist]
         exclude:
+          # The owned Kata guest kernel cannot execute i386 Python yet.
+          - os: ubuntu-latest
+            architecture: x64
           # Exclude x86 (32-bit) builds for macos, which doesn't support 32-bit at all
           - os: macos-latest
             architecture: x86
@@ -105,7 +109,6 @@ jobs:
 
       - name: Build wheel with mypycify
         if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        id: mypycify
         uses: BobTheBuidler/mypycify@v0.5.1
         with:
           python-version: 3.${{ matrix.pyminor }}
@@ -131,13 +134,6 @@ jobs:
       - name: Validate Windows x86 Python
         if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
         run: python -c "import struct; bits = struct.calcsize('P') * 8; assert bits == 32, bits"
-
-      - name: Download built wheel artifact
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ steps.mypycify.outputs.artifact-name }}
-          path: dist
 
       - name: Validate Windows x86 wheel tag
         if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
@@ -186,14 +182,21 @@ jobs:
       - name: Run tox
         if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
         run: |
-          WHEEL_PATH="$(find dist -name '*.whl' -print -quit)"
-          if [[ -z "$WHEEL_PATH" ]]; then
-            echo "No wheel artifact found in dist"
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [[ "${#wheels[@]}" -ne 1 ]]; then
+            echo "Expected exactly one compiled wheel in dist, found ${#wheels[@]}"
             exit 1
           fi
+          WHEEL_PATH="${wheels[0]}"
           if [[ "${{ matrix.jobtype }}" == "wheel" ]]; then
             WHEEL_PATH="$WHEEL_PATH" python -m tox run ${{ env.TOX_RECREATE_FLAG }}
           else
             python -m tox run ${{ env.TOX_RECREATE_FLAG }} --installpkg="$WHEEL_PATH"
           fi
         shell: bash
+
+  linux:
+    permissions:
+      contents: read
+    uses: SatoshiAndKin/faster-eth-abi/.github/workflows/tox-reviewed-linux.yaml@505764e9f22fbfd24a972a4e4fb68946151225bc

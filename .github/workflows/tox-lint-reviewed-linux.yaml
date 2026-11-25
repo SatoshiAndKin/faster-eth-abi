@@ -1,0 +1,58 @@
+name: Reviewed Linux Tox lint
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (3.${{ matrix.pyminor }}, ${{ matrix.os }})
+    runs-on:
+      group: ski-ci-public-linux
+      labels: ski-kvm-public-pr
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        pyminor: ["10", "11", "12", "13", "13t", "14", "14t"]
+      # limit parallelism for cronjob, otherwise blast it
+      max-parallel: ${{ github.event_name == 'schedule' && 4 || 1000 }}
+    env:
+      TOXENV: py3${{ matrix.pyminor }}-lint
+      TOX_RECREATE_FLAG: ${{ github.event_name == 'schedule' && '-r' || '' }}
+
+    steps:
+      - name: Checkout code and tests
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: 3.${{ matrix.pyminor }}
+          cache: pip
+          cache-dependency-path: |
+            setup.py
+            pyproject.toml
+            tox.ini
+
+      - name: Upgrade pip and install tox
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox
+
+      - name: Cache tox environment and hypothesis examples
+        uses: actions/cache@v6
+        with:
+          path: |
+            .tox
+            .hypothesis
+          key: k3s-${{ runner.os }}-tox-${{ hashFiles('pyproject.toml', 'setup.py', 'tox.ini') }}-3.${{ matrix.pyminor }}-lint
+          save-always: ${{ env.TOX_RECREATE_FLAG == '-r' }}
+
+      - name: Run tox
+        run: python -m tox run ${{ env.TOX_RECREATE_FLAG }}

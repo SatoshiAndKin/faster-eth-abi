@@ -7,6 +7,7 @@ on:
     paths:
       - '**.py'
       - '.github/workflows/tox-lint.yaml'
+      - '.github/workflows/tox-lint-reviewed-linux.yaml'
       - 'pyproject.toml'
       - 'setup.py'
       - 'tox.ini'
@@ -23,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
         pyminor: ["10", "11", "12", "13", "13t", "14", "14t"]
       # limit parallelism for cronjob, otherwise blast it
       max-parallel: ${{ github.event_name == 'schedule' && 4 || 1000 }}
@@ -63,3 +64,8 @@ jobs:
 
       - name: Run tox
         run: python -m tox run ${{ env.TOX_RECREATE_FLAG }}
+
+  linux:
+    permissions:
+      contents: read
+    uses: SatoshiAndKin/faster-eth-abi/.github/workflows/tox-lint-reviewed-linux.yaml@3012426f7fdedafa8a44af18ff8871f7f3254825
