@@ -32,6 +32,11 @@ on:
           - both
           - codspeed
           - comparison
+      upload-raw-benchmark-results:
+        description: "Upload the full raw benchmark archive for one day"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: pr-ci-benchmark.yaml-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
@@ -236,11 +241,13 @@ jobs:
           path: benchmark-parts
 
       - name: Upload Pytest Benchmark Results
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-raw-benchmark-results }}
         uses: actions/upload-artifact@v7
         with:
           name: pytest-benchmark-results
           path: benchmark-parts/
           if-no-files-found: error
+          retention-days: 1
 
       - name: Parse Pytest Benchmark Output
         run: >-
