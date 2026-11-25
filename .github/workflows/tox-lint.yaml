@@ -7,6 +7,7 @@ on:
     paths:
       - '**.py'
       - '.github/workflows/tox-lint.yaml'
+      - '.pre-commit-config.yaml'
       - '.github/workflows/tox-lint-reviewed-linux.yaml'
       - 'pyproject.toml'
       - 'setup.py'
