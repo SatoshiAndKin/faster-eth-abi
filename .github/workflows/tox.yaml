@@ -78,7 +78,6 @@ jobs:
             tox.ini
 
       - name: Build wheel with mypycify
-        id: mypycify
         uses: BobTheBuidler/mypycify@v0.5.1
         with:
           python-version: 3.${{ matrix.pyminor }}
@@ -104,12 +103,6 @@ jobs:
       - name: Validate Windows x86 Python
         if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
         run: python -c "import struct; bits = struct.calcsize('P') * 8; assert bits == 32, bits"
-
-      - name: Download built wheel artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ steps.mypycify.outputs.artifact-name }}
-          path: dist
 
       - name: Validate Windows x86 wheel tag
         if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
@@ -153,11 +146,13 @@ jobs:
 
       - name: Run tox
         run: |
-          WHEEL_PATH="$(find dist -name '*.whl' -print -quit)"
-          if [[ -z "$WHEEL_PATH" ]]; then
-            echo "No wheel artifact found in dist"
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [[ "${#wheels[@]}" -ne 1 ]]; then
+            echo "Expected exactly one compiled wheel in dist, found ${#wheels[@]}"
             exit 1
           fi
+          WHEEL_PATH="${wheels[0]}"
           if [[ "${{ matrix.jobtype }}" == "wheel" ]]; then
             WHEEL_PATH="$WHEEL_PATH" python -m tox run ${{ env.TOX_RECREATE_FLAG }}
           else
@@ -168,4 +163,4 @@ jobs:
   linux:
     permissions:
       contents: read
-    uses: SatoshiAndKin/faster-eth-abi/.github/workflows/tox-reviewed-linux.yaml@3012426f7fdedafa8a44af18ff8871f7f3254825
+    uses: SatoshiAndKin/faster-eth-abi/.github/workflows/tox-reviewed-linux.yaml@f6204f549e520f038e63461e28b23121fdf986d1
