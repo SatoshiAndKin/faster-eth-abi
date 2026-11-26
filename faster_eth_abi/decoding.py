@@ -20,7 +20,6 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
-    Union,
     final,
 )
 
@@ -105,12 +104,7 @@ class HeadTailDecoder(BaseDecoder[T]):
 
     def __init__(
         self,
-        tail_decoder: Union[  # type: ignore [type-var]
-            "HeadTailDecoder[T]",
-            "SizedArrayDecoder[T]",
-            "DynamicArrayDecoder[T]",
-            "ByteStringDecoder[T]",
-        ],
+        tail_decoder: BaseDecoder[T],
     ) -> None:
         super().__init__()
 
