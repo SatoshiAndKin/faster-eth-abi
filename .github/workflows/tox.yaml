@@ -23,7 +23,8 @@ jobs:
       run: python3 .github/scripts/ci_changes.py
   test:
     name: Test (${{ matrix.jobtype }}, 3.${{ matrix.pyminor }}, ${{ matrix.os }}, ${{ matrix.architecture }}, ${{ matrix.installmode }})
-    runs-on: ${{ matrix.os }}
+    # Docker 29.4.2 on Ubuntu 26.04 rejects legacy i386 socketcall.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86' && 'ubuntu-24.04' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +69,7 @@ jobs:
     - name: Run job in 32-bit Ubuntu Docker container
       if: ${{ env.IS_UBUNTU_32BIT == 'true' }}
       shell: bash
-      run: "set -euo pipefail\n# Reuse the runner's working DNS for legacy 32-bit container libc.\ndocker_hosts=()\nfor hostname in pypi.org files.pythonhosted.org; do\n  address=$(getent ahostsv4 \"$hostname\" | awk 'NR == 1 {print $1}')\n  test -n \"$address\"\n  docker_hosts+=(--add-host \"$hostname:$address\")\ndone\ndocker run --rm -i --network host \"${docker_hosts[@]}\" \\\n  -e TOXENV -e TOX_RECREATE_FLAG -e IS_UBUNTU_32BIT \\\n  -v \"${{ github.workspace }}:/workspace\" -w /workspace \\\n  i386/python:3.${{ matrix.pyminor }} bash -se <<'CI_CONTAINER'\nset -euo pipefail\npython -m pip install --upgrade pip\npython -m pip install tox\nif [[ \"${{ matrix.jobtype }}\" == \"wheel\" ]]; then\n  python -m pip install \"build[virtualenv]\"\n  python -m build --wheel\n  export WHEEL_PATH=\"$(find dist -name '*.whl' -print -quit)\"\n  if [[ -z \"$WHEEL_PATH\" ]]; then\n    echo \"No wheel artifact found in dist\"\n    exit 1\n  fi\n  rm -r faster_eth_abi\nfi\npython -m tox -e ${{ env.TOXENV\
+      run: "set -euo pipefail\ndocker run --rm -i \\\n  -e TOXENV -e TOX_RECREATE_FLAG -e IS_UBUNTU_32BIT \\\n  -v \"${{ github.workspace }}:/workspace\" -w /workspace \\\n  i386/python:3.${{ matrix.pyminor }} bash -se <<'CI_CONTAINER'\nset -euo pipefail\npython -m pip install --upgrade pip\npython -m pip install tox\nif [[ \"${{ matrix.jobtype }}\" == \"wheel\" ]]; then\n  python -m pip install \"build[virtualenv]\"\n  python -m build --wheel\n  export WHEEL_PATH=\"$(find dist -name '*.whl' -print -quit)\"\n  if [[ -z \"$WHEEL_PATH\" ]]; then\n    echo \"No wheel artifact found in dist\"\n    exit 1\n  fi\n  rm -r faster_eth_abi\nfi\npython -m tox -e ${{ env.TOXENV\
         \ }} ${{ env.TOX_RECREATE_FLAG }}\nCI_CONTAINER\n"
       continue-on-error: ${{ matrix.pyminor == '13t' || matrix.pyminor == '14t' }}
     - name: Set up Python (macos)
