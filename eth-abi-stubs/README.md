@@ -11,8 +11,8 @@
 ## How to use
 
 1. Install eth-abi-stubs alongside eth-abi or faster-eth-abi.
-2. Type check your code with mypy or another type checker.
-3. Enjoy precise type inference for ABI operations!
+1. Type check your code with mypy or another type checker.
+1. Enjoy precise type inference for ABI operations!
 
 ## Example
 

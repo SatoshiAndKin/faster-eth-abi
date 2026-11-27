@@ -1,8 +1,20 @@
-from _typeshed import Incomplete
-from decimal import Context
-from faster_eth_abi.utils.numeric import abi_decimal_context as abi_decimal_context
-from types import TracebackType
-from typing import Final
+from decimal import (
+    Context,
+)
+from types import (
+    TracebackType,
+)
+from typing import (
+    Final,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+
+from faster_eth_abi.utils.numeric import (
+    abi_decimal_context as abi_decimal_context,
+)
 
 getcontext: Final[Incomplete]
 setcontext: Final[Incomplete]

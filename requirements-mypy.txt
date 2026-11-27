@@ -1,4 +1,5 @@
 -r requirements.txt
 
-mypy==2.3.0
+mypy>=2.2.0,<=2.3.0
 tqdm
+tomli>=2; python_version < "3.11"

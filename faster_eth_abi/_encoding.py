@@ -1,7 +1,8 @@
-"""Private helpers for encoding logic, intended for C compilation.
+"""
+Private helpers for encoding logic, intended for C compilation.
 
-This file exists because the original encoding.py is not ready to be fully compiled to C.
-This module contains functions and logic that we do wish to compile.
+This file exists because the original encoding.py is not ready to be fully compiled to
+C. This module contains functions and logic that we do wish to compile.
 """
 import decimal
 from typing import (
@@ -40,8 +41,8 @@ if TYPE_CHECKING:
         BaseEncoder,
         BaseFixedEncoder,
         PackedArrayEncoder,
-        SizedArrayEncoder,
         SignedFixedEncoder,
+        SizedArrayEncoder,
         TupleEncoder,
         UnsignedFixedEncoder,
     )
@@ -56,16 +57,19 @@ def validate_tuple(self: "TupleEncoder", value: Sequence[Any]) -> None:
 
     validators = self.validators
     expected_length = len(validators)
-        
+
     # we can make more optimized C code by splitting this block by `value` type
     if isinstance(value, list):
         if len(value) != expected_length:
             self.invalidate_value(
                 value,
                 exc=ValueOutOfBounds,
-                msg=f"value has {len(value)} items when {expected_length} were expected",
+                msg=(
+                    f"value has {len(value)} items when "
+                    f"{expected_length} were expected"
+                ),
             )
-    
+
         for item, validator in zip(value, validators):
             validator(item)
 
@@ -74,9 +78,12 @@ def validate_tuple(self: "TupleEncoder", value: Sequence[Any]) -> None:
             self.invalidate_value(
                 value,
                 exc=ValueOutOfBounds,
-                msg=f"value has {len(value)} items when {expected_length} were expected",
+                msg=(
+                    f"value has {len(value)} items when "
+                    f"{expected_length} were expected"
+                ),
             )
-    
+
         for item, validator in zip(value, validators):
             validator(item)
 
@@ -85,9 +92,12 @@ def validate_tuple(self: "TupleEncoder", value: Sequence[Any]) -> None:
             self.invalidate_value(
                 value,
                 exc=ValueOutOfBounds,
-                msg=f"value has {len(value)} items when {expected_length} were expected",
+                msg=(
+                    f"value has {len(value)} items when "
+                    f"{expected_length} were expected"
+                ),
             )
-    
+
         for item, validator in zip(value, validators):
             validator(item)
 
@@ -103,7 +113,7 @@ def encode_tuple(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     head_length = 0
     raw_head_chunks: List[Optional[bytes]] = []
     tail_chunks: List[bytes] = []
-    
+
     # we can make more optimized C code by splitting this block by `values` type
     if isinstance(values, tuple):
         for value, encoder, is_dynamic in zip(values, self.encoders, self._is_dynamic):
@@ -178,7 +188,7 @@ def encode_tuple_all_dynamic(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(len(encoders)))
@@ -191,7 +201,7 @@ def encode_tuple_no_dynamic(self: "TupleEncoder", values: Sequence[Any]) -> byte
 def encode_tuple_no_dynamic1(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders: Tuple["BaseEncoder"] = self.encoders
-    
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return encoders[0](values[0])
@@ -205,7 +215,7 @@ def encode_tuple_no_dynamic2(self: "TupleEncoder", values: Sequence[Any]) -> byt
     validate_tuple(self, values)
     encoders = self.encoders
     # encoders: Tuple["BaseEncoder", "BaseEncoder"] = self.encoders
-    
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return encoders[0](values[0]) + encoders[1](values[1])
@@ -219,7 +229,7 @@ def encode_tuple_no_dynamic3(self: "TupleEncoder", values: Sequence[Any]) -> byt
     validate_tuple(self, values)
     encoders = self.encoders
     # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(3))
@@ -232,8 +242,9 @@ def encode_tuple_no_dynamic3(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic4(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] =
+    # self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(4))
@@ -246,8 +257,9 @@ def encode_tuple_no_dynamic4(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic5(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder"] = self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(5))
@@ -260,8 +272,9 @@ def encode_tuple_no_dynamic5(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic6(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder", "BaseEncoder"] = self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(6))
@@ -274,8 +287,9 @@ def encode_tuple_no_dynamic6(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic7(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(7))
@@ -288,8 +302,9 @@ def encode_tuple_no_dynamic7(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic8(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(8))
@@ -302,8 +317,10 @@ def encode_tuple_no_dynamic8(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic9(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] =
+    # self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(9))
@@ -316,8 +333,10 @@ def encode_tuple_no_dynamic9(self: "TupleEncoder", values: Sequence[Any]) -> byt
 def encode_tuple_no_dynamic10(self: "TupleEncoder", values: Sequence[Any]) -> bytes:
     validate_tuple(self, values)
     encoders = self.encoders
-    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder"] = self.encoders
-    
+    # encoders: Tuple["BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder", "BaseEncoder",
+    # "BaseEncoder"] = self.encoders
+
     # we can make more optimized C code by splitting this line by `values` type
     if isinstance(values, tuple):
         return b"".join(encoders[i](values[i]) for i in range(10))
@@ -375,7 +394,10 @@ def encode_fixed_smallendian(
 
 # UnsignedFixedEncoder
 
-def encode_unsigned_fixed(self: "UnsignedFixedEncoder", value: decimal.Decimal) -> bytes:
+
+def encode_unsigned_fixed(
+    self: "UnsignedFixedEncoder", value: decimal.Decimal
+) -> bytes:
     with DECIMAL_CONTEXT:
         scaled_value = value * self.denominator
         integer_value = int(scaled_value)
@@ -384,6 +406,7 @@ def encode_unsigned_fixed(self: "UnsignedFixedEncoder", value: decimal.Decimal) 
 
 
 # SignedFixedEncoder
+
 
 def encode_signed_fixed(self: "SignedFixedEncoder", value: decimal.Decimal) -> bytes:
     with DECIMAL_CONTEXT:
@@ -427,14 +450,14 @@ def encode_text(value: str) -> bytes:
 def validate_array(array_encoder: "BaseArrayEncoder", value: Sequence[Any]) -> None:
     # sourcery skip: merge-duplicate-blocks
     # TODO: specialize this func so we can call validate_item at the C level
-    
+
     validate_item = array_encoder.item_encoder.validate_value
-    
+
     # fast path for lists
     if isinstance(value, list):
         for item in value:
             validate_item(item)
-    
+
     # fast path for tuples
     elif isinstance(value, tuple):
         for item in value:
@@ -452,7 +475,7 @@ def validate_array(array_encoder: "BaseArrayEncoder", value: Sequence[Any]) -> N
             msg="must be list-like such as array or tuple",
         )
 
-    
+
 def encode_elements(item_encoder: "BaseEncoder", value: Sequence[Any]) -> bytes:
     tail_chunks = tuple(item_encoder(i) for i in value)
 
@@ -473,7 +496,9 @@ def encode_elements(item_encoder: "BaseEncoder", value: Sequence[Any]) -> bytes:
     return b"".join(head_chunks) + b"".join(tail_chunks)
 
 
-def validate_packed_array(array_encoder: "PackedArrayEncoder", value: Sequence[Any]) -> None:
+def validate_packed_array(
+    array_encoder: "PackedArrayEncoder", value: Sequence[Any]
+) -> None:
     validate_array(array_encoder, value)
     array_size = array_encoder.array_size
     if array_size is not None and len(value) != array_size:
@@ -484,7 +509,9 @@ def validate_packed_array(array_encoder: "PackedArrayEncoder", value: Sequence[A
         )
 
 
-def validate_sized_array(array_encoder: "SizedArrayEncoder", value: Sequence[Any]) -> None:
+def validate_sized_array(
+    array_encoder: "SizedArrayEncoder", value: Sequence[Any]
+) -> None:
     validate_array(array_encoder, value)
     if len(value) != array_encoder.array_size:
         array_encoder.invalidate_value(

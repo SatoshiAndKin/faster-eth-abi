@@ -1,7 +1,8 @@
-"""Private helpers for decoding logic, intended for C compilation.
+"""
+Private helpers for decoding logic, intended for C compilation.
 
-This file exists because the original decoding.py is not ready to be fully compiled to C.
-This module contains functions and logic that we wish to compile.
+This file exists because the original decoding.py is not ready to be fully compiled to
+C. This module contains functions and logic that we wish to compile.
 """
 import decimal
 from typing import (
@@ -207,7 +208,7 @@ def decode_sized_array(
         raise AssertionError("`item_decoder` is None")
 
     array_size = self.array_size
-    
+
     if item_decoder.is_dynamic:
         validate_pointers_array(self, stream, array_size)
 
@@ -220,7 +221,7 @@ def decode_dynamic_array(
 ) -> Tuple[T, ...]:
     if self.item_decoder is None:
         raise AssertionError("`item_decoder` is None")
-        
+
     array_size = decode_uint_256(stream)
     stream.push_frame(32)
 
@@ -230,7 +231,7 @@ def decode_dynamic_array(
 
     if item_decoder.is_dynamic:
         validate_pointers_array(self, stream, array_size)
-        
+
     try:
         return tuple(item_decoder(stream) for _ in range(array_size))
     finally:

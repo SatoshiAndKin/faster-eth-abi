@@ -1,4 +1,5 @@
-"""Classes for ABI encoding logic.
+"""
+Classes for ABI encoding logic.
 
 Implements classes and functions for serializing Python values into binary data
 according to ABI type specifications.
@@ -278,7 +279,10 @@ class PackedBooleanEncoder(BooleanEncoder):
 
 class NumberEncoder(Fixed32ByteSizeEncoder):
     is_big_endian = True
-    bounds_fn: Callable[[int], Tuple[Number, Number]] = None  # type: ignore [assignment]
+    bounds_fn: Callable[
+        [int],
+        Tuple[Number, Number],
+    ] = None  # type: ignore [assignment]
     illegal_value_fn: Callable[[Any], bool] = None  # type: ignore [assignment]
     type_check_fn: Callable[[Any], bool] = None  # type: ignore [assignment]
 
@@ -483,7 +487,7 @@ class PackedUnsignedFixedEncoder(UnsignedFixedEncoder):
 class SignedFixedEncoder(BaseFixedEncoder):
     def bounds_fn(self, value_bit_size):
         return compute_signed_fixed_bounds(self.value_bit_size, self.frac_places)
-      
+
     @cached_property
     def modulus(self) -> int:
         return 2**self.value_bit_size

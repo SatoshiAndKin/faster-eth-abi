@@ -2,7 +2,7 @@
 
 **faster-eth-abi provides type-safe ABI overloads and comprehensive type annotations that are not available in eth-abi. This means you get precise, static type checking for ABI encoding and decoding—making faster-eth-abi a major improvement over eth-abi for any codebase that cares about type safety.**
 
-~~Users of the original eth-abi can get access to this enhanced typing information by installing the `eth-abi-stubs` package provided in this repository.~~  
+~~Users of the original eth-abi can get access to this enhanced typing information by installing the `eth-abi-stubs` package provided in this repository.~~
 <sup>(Coming soon: easy install for eth-abi users!)</sup>
 
 ## Example: Type-Safe ABI Decoding

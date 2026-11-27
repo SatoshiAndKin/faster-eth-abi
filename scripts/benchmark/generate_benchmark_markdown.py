@@ -1,6 +1,8 @@
-"""Generates Markdown summaries from pytest-benchmark diff JSON results.
+"""
+Generates Markdown summaries from pytest-benchmark diff JSON results.
 
-Reads a diff JSON file and writes Markdown tables summarizing benchmark results for each submodule and group.
+Reads a diff JSON file and writes Markdown tables summarizing benchmark results for each
+submodule and group.
 """
 import json
 import os
@@ -21,7 +23,8 @@ def main():
         diff = json.load(f)
 
     for submodule, groupDiffs in diff.items():
-        # Convert submodule name to submodule file path (e.g., faster_eth_abi.encoding -> faster_eth_abi/encoding.py)
+        # Convert submodule name to submodule file path (e.g., faster_eth_abi.encoding
+        # -> faster_eth_abi/encoding.py)
         submoduleFile = "unknown"
         benchmarkFile = "unknown"
         m = None
@@ -40,10 +43,12 @@ def main():
             f"#### [{submodule}]({submoduleUrl}) - [view benchmarks]({benchmarkUrl})\n"
         )
         md_lines.append(
-            "| Function | Reference Mean | Faster Mean | % Change | Speedup (%) | x Faster | Faster |"
+            "| Function | Reference Mean | Faster Mean | % Change | "
+            "Speedup (%) | x Faster | Faster |"
         )
         md_lines.append(
-            "|----------|---------------|-------------|----------|-------------|----------|--------|"
+            "|----------|---------------|-------------|----------|"
+            "-------------|----------|--------|"
         )
 
         for group, data in sorted(groupDiffs.items()):
@@ -70,7 +75,9 @@ def main():
                     else ""
                 )
                 md_lines.append(
-                    f"| `{group}` | {data.get('reference_mean', '')} | {data.get('faster_mean', '')} | {percentChange} | {speedupPercent} | {speedupX} | {emoji} |"
+                    f"| `{group}` | {data.get('reference_mean', '')} | "
+                    f"{data.get('faster_mean', '')} | {percentChange} | "
+                    f"{speedupPercent} | {speedupX} | {emoji} |"
                 )
             elif data.get("note"):
                 md_lines.append(f"| `{group}` |  |  |  |  |  | ➖ |")

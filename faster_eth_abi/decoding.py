@@ -1,4 +1,5 @@
-"""Classes for ABI decoding logic.
+"""
+Classes for ABI decoding logic.
 
 Implements classes and functions for deserializing binary data into Python values
 according to ABI type specifications.

@@ -1,9 +1,30 @@
-from _typeshed import Incomplete
-from eth_typing.abi import TypeStr as TypeStr
-from faster_eth_abi.exceptions import ABITypeError as ABITypeError
-from parsimonious.nodes import Node as Node
-from typing import Any, Final, Generic, Literal, NoReturn, TypeAlias, TypeVar, final
-from typing_extensions import Self
+from typing import (
+    Any,
+    Final,
+    Generic,
+    Literal,
+    NoReturn,
+    TypeAlias,
+    TypeVar,
+    final,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+from eth_typing.abi import (
+    TypeStr as TypeStr,
+)
+from parsimonious.nodes import (
+    Node as Node,
+)
+from typing_extensions import (
+    Self,
+)
+
+from faster_eth_abi.exceptions import (
+    ABITypeError as ABITypeError,
+)
 
 TYPE_ALIASES: Final[Incomplete]
 TYPE_ALIAS_RE: Final[Incomplete]
@@ -35,14 +56,12 @@ class ABIType:
         Returns the string representation of an ABI type.  This will be equal to
         the type string from which it was created.
         """
-
     @property
     def item_type(self) -> Self:
         """
         If this type is an array type, equal to an appropriate
         :class:`~faster_eth_abi.grammar.ABIType` instance for the array's items.
         """
-
     def validate(self) -> None:
         """
         Validates the properties of an ABI type against the solidity ABI spec:
@@ -51,7 +70,6 @@ class ABIType:
 
         Raises :class:`~faster_eth_abi.exceptions.ABITypeError` if validation fails.
         """
-
     @final
     def invalidate(self, error_msg: str) -> NoReturn: ...
     @final
@@ -61,7 +79,6 @@ class ABIType:
         Equal to ``True`` if a type is an array type (i.e. if it has an array
         dimension list).  Otherwise, equal to ``False``.
         """
-
     @property
     def is_dynamic(self) -> bool:
         """

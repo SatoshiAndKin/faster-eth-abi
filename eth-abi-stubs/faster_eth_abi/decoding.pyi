@@ -1,7 +1,24 @@
 import abc
 import decimal
-from _typeshed import Incomplete
-from eth_typing import HexAddress
+from functools import (
+    cached_property as cached_property,
+)
+from typing import (
+    Any,
+    Callable,
+    Final,
+    Generic,
+    TypeVar,
+    final,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+from eth_typing import (
+    HexAddress,
+)
+
 from faster_eth_abi._decoding import (
     decode_dynamic_array as decode_dynamic_array,
     decode_head_tail as decode_head_tail,
@@ -19,17 +36,25 @@ from faster_eth_abi._decoding import (
     validate_padding_bytes_signed_integer as validate_padding_bytes_signed_integer,
     validate_pointers_array as validate_pointers_array,
 )
-from faster_eth_abi.base import BaseCoder as BaseCoder
-from faster_eth_abi.exceptions import NonEmptyPaddingBytes as NonEmptyPaddingBytes
+from faster_eth_abi.base import (
+    BaseCoder as BaseCoder,
+)
+from faster_eth_abi.exceptions import (
+    NonEmptyPaddingBytes as NonEmptyPaddingBytes,
+)
 from faster_eth_abi.from_type_str import (
     parse_tuple_type_str as parse_tuple_type_str,
     parse_type_str as parse_type_str,
 )
-from faster_eth_abi.io import ContextFramesBytesIO as ContextFramesBytesIO
-from faster_eth_abi.typing import T as T
-from faster_eth_abi.utils.numeric import TEN as TEN
-from functools import cached_property as cached_property
-from typing import Any, Callable, Final, Generic, TypeVar, final
+from faster_eth_abi.io import (
+    ContextFramesBytesIO as ContextFramesBytesIO,
+)
+from faster_eth_abi.typing import (
+    T as T,
+)
+from faster_eth_abi.utils.numeric import (
+    TEN as TEN,
+)
 
 TByteStr = TypeVar("TByteStr", bytes, str)
 
@@ -48,7 +73,6 @@ class BaseDecoder(BaseCoder, Generic[T], metaclass=abc.ABCMeta):
         :any:`exceptions.DecodingError` if a python value cannot be decoded
         from the given byte stream.
         """
-
     def __call__(self, stream: ContextFramesBytesIO) -> T: ...
 
 class HeadTailDecoder(BaseDecoder[T]):

@@ -1,7 +1,8 @@
 """
 Context-aware byte stream for ABI decoding.
 
-Implements a lightweight frame-aware reader that avoids BytesIO overhead in hot decoding paths.
+Implements a lightweight frame-aware reader that avoids BytesIO overhead in hot decoding
+paths.
 """
 from typing import (
     Any,
@@ -13,7 +14,6 @@ from typing import (
 from mypy_extensions import (
     mypyc_attr,
 )
-
 
 Frame: TypeAlias = tuple[int, int]
 

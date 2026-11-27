@@ -66,7 +66,10 @@ def test_PredicateMapping_add_remove(benchmark: BenchmarkFixture):
 
     def add_remove():
         for t in TYPE_STRINGS:
-            pred = lambda s, t=t: s == t
+
+            def pred(s, t=t):
+                return s == t
+
             mapping.add(pred, t)
             mapping.remove(pred)
 
@@ -79,7 +82,10 @@ def test_faster_PredicateMapping_add_remove(benchmark: BenchmarkFixture):
 
     def add_remove():
         for t in TYPE_STRINGS:
-            pred = lambda s, t=t: s == t
+
+            def pred(s, t=t):
+                return s == t
+
             mapping.add(pred, t)
             mapping.remove(pred)
 

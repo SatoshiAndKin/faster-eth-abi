@@ -118,8 +118,10 @@ def test_abi_encode_raises_for_non_list_like_params(non_list_like_value):
     with pytest.raises(
         expected_exc,
         # NOTE The `match` arg was commented out because faster-eth-abi might not raise
-        # the same exception, but we should still test that it raises an Exception like eth-abi
-        # match=f"The `types` value type must be one of list or tuple. Got {type(non_list_like_value)}",
+        # the same exception, but we should still test that it raises an Exception like
+        # eth-abi
+        # match=f"The `types` value type must be one of list or tuple. Got
+        # {type(non_list_like_value)}",
     ):
         encode(non_list_like_value, ["bytes"])
 

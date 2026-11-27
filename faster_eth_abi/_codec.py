@@ -1,7 +1,9 @@
-"""Internal codec helpers for encoding and decoding sequences of values using the head-tail mechanism.
+"""
+Internal codec helpers for encoding and decoding sequences of values using the head-tail
+mechanism.
 
-Provides encode_c and decode_c functions for binary serialization and deserialization of values
-according to ABI type specifications.
+Provides encode_c and decode_c functions for binary serialization and deserialization of
+values according to ABI type specifications.
 """
 
 from typing import (

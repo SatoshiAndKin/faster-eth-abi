@@ -1,4 +1,11 @@
 import decimal
+from typing import (
+    Any,
+    Callable,
+    Sequence,
+    TypeVar,
+)
+
 from faster_eth_abi.encoding import (
     BaseArrayEncoder as BaseArrayEncoder,
     BaseEncoder as BaseEncoder,
@@ -13,10 +20,15 @@ from faster_eth_abi.exceptions import (
     IllegalValue as IllegalValue,
     ValueOutOfBounds as ValueOutOfBounds,
 )
-from faster_eth_abi.utils.localcontext import DECIMAL_CONTEXT as DECIMAL_CONTEXT
-from faster_eth_abi.utils.numeric import ceil32 as ceil32
-from faster_eth_abi.utils.padding import zpad_right as zpad_right
-from typing import Any, Callable, Sequence, TypeVar
+from faster_eth_abi.utils.localcontext import (
+    DECIMAL_CONTEXT as DECIMAL_CONTEXT,
+)
+from faster_eth_abi.utils.numeric import (
+    ceil32 as ceil32,
+)
+from faster_eth_abi.utils.padding import (
+    zpad_right as zpad_right,
+)
 
 T = TypeVar("T")
 

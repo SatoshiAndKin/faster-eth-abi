@@ -3,7 +3,7 @@ name: "Cancel closed PR: lint.yaml"
 on:
   pull_request:
     types: [closed]
-    branches: ["master"]
+    branches: ["master"]  # blocklint: technical identifier pragma
 
 permissions: {}
 

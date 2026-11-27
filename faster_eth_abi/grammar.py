@@ -1,19 +1,20 @@
-"""Parsing and normalization logic for ABI type strings.
+"""
+Parsing and normalization logic for ABI type strings.
 
 Implements grammar, parsing, and type validation for ABI type strings.
 """
 import functools
 from typing import (
+    TYPE_CHECKING,
     Any,
     Final,
-    TYPE_CHECKING,
     final,
 )
 
-import parsimonious
 from eth_typing import (
     TypeStr,
 )
+import parsimonious
 from parsimonious import (
     expressions,
 )

@@ -1,4 +1,5 @@
-"""Helpers for packed ABI encoding.
+"""
+Helpers for packed ABI encoding.
 
 Defines functions and registry for packed encoding and encodability checks.
 """

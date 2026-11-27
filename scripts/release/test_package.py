@@ -1,6 +1,8 @@
-"""Script to test installation of a built wheel in a fresh virtual environment.
+"""
+Script to test installation of a built wheel in a fresh virtual environment.
 
-Creates a temporary virtual environment, installs the local wheel, and prompts the user to verify installation.
+Creates a temporary virtual environment, installs the local wheel, and prompts the user
+to verify installation.
 """
 from pathlib import (
     Path,

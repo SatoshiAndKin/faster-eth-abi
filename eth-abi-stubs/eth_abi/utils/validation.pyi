@@ -1,4 +1,6 @@
-from typing import Any
+from typing import (
+    Any,
+)
 
 def validate_bytes_param(param: Any, param_name: str) -> None: ...
 def validate_list_like_param(param: Any, param_name: str) -> None: ...

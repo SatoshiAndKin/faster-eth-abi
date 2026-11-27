@@ -1,6 +1,31 @@
 import abc
-from _typeshed import Incomplete
-from decimal import Decimal
+from decimal import (
+    Decimal,
+)
+from functools import (
+    cached_property as cached_property,
+)
+from numbers import (
+    Number,
+)
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Final,
+    NoReturn,
+    Sequence,
+    final,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+from typing_extensions import (
+    Self,
+    TypeGuard,
+)
+
 from faster_eth_abi._encoding import (
     encode_bytestring as encode_bytestring,
     encode_elements as encode_elements,
@@ -22,7 +47,9 @@ from faster_eth_abi._encoding import (
     validate_sized_array as validate_sized_array,
     validate_tuple as validate_tuple,
 )
-from faster_eth_abi.base import BaseCoder as BaseCoder
+from faster_eth_abi.base import (
+    BaseCoder as BaseCoder,
+)
 from faster_eth_abi.exceptions import (
     EncodingTypeError as EncodingTypeError,
     IllegalValue as IllegalValue,
@@ -39,11 +66,9 @@ from faster_eth_abi.utils.numeric import (
     compute_unsigned_fixed_bounds as compute_unsigned_fixed_bounds,
     compute_unsigned_integer_bounds as compute_unsigned_integer_bounds,
 )
-from faster_eth_abi.utils.string import abbr as abbr
-from functools import cached_property as cached_property
-from numbers import Number
-from typing import Any, Callable, ClassVar, Final, NoReturn, Sequence, final
-from typing_extensions import Self, TypeGuard
+from faster_eth_abi.utils.string import (
+    abbr as abbr,
+)
 
 class BaseEncoder(BaseCoder, metaclass=abc.ABCMeta):
     """
@@ -58,7 +83,6 @@ class BaseEncoder(BaseCoder, metaclass=abc.ABCMeta):
         Encodes the given value as a sequence of bytes.  Should raise
         :any:`exceptions.EncodingError` if ``value`` cannot be encoded.
         """
-
     @abc.abstractmethod
     def validate_value(self, value: Any) -> None:
         """
@@ -66,7 +90,6 @@ class BaseEncoder(BaseCoder, metaclass=abc.ABCMeta):
         If the given value cannot be encoded, must raise
         :any:`exceptions.EncodingError`.
         """
-
     @classmethod
     def invalidate_value(
         cls, value: Any, exc: type[Exception] = ..., msg: str | None = None
@@ -75,7 +98,6 @@ class BaseEncoder(BaseCoder, metaclass=abc.ABCMeta):
         Throws a standard exception for when a value is not encodable by an
         encoder.
         """
-
     def __call__(self, value: Any) -> bytes: ...
 
 class TupleEncoder(BaseEncoder):

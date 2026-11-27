@@ -1,20 +1,40 @@
 import abc
+from typing import (
+    Any,
+    Callable,
+    Final,
+    Generic,
+    Iterator,
+    TypeVar,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+from eth_typing import (
+    TypeStr,
+)
+from typing_extensions import (
+    ParamSpec,
+    Self,
+)
+
 from . import (
     decoding as decoding,
     encoding as encoding,
     exceptions as exceptions,
     grammar as grammar,
 )
-from .base import BaseCoder as BaseCoder
+from .base import (
+    BaseCoder as BaseCoder,
+)
 from .exceptions import (
     MultipleEntriesFound as MultipleEntriesFound,
     NoEntriesFound as NoEntriesFound,
 )
-from .io import ContextFramesBytesIO as ContextFramesBytesIO
-from _typeshed import Incomplete
-from eth_typing import TypeStr
-from typing import Any, Callable, Final, Generic, Iterator, TypeVar
-from typing_extensions import ParamSpec, Self
+from .io import (
+    ContextFramesBytesIO as ContextFramesBytesIO,
+)
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -110,7 +130,6 @@ class ABIRegistry(Copyable, BaseRegistry):
         the registration by name.  For more information about arguments, refer
         to :any:`register`.
         """
-
     @_clear_encoder_cache
     def unregister_encoder(self, lookup_or_label: Lookup) -> None:
         """
@@ -120,7 +139,6 @@ class ABIRegistry(Copyable, BaseRegistry):
         encoder with the lookup function ``lookup_or_label`` will be
         unregistered.
         """
-
     @_clear_decoder_cache
     def register_decoder(
         self, lookup: Lookup, decoder: Decoder, label: str | None = None
@@ -131,7 +149,6 @@ class ABIRegistry(Copyable, BaseRegistry):
         the registration by name.  For more information about arguments, refer
         to :any:`register`.
         """
-
     @_clear_decoder_cache
     def unregister_decoder(self, lookup_or_label: Lookup) -> None:
         """
@@ -141,7 +158,6 @@ class ABIRegistry(Copyable, BaseRegistry):
         decoder with the lookup function ``lookup_or_label`` will be
         unregistered.
         """
-
     def register(
         self,
         lookup: Lookup,
@@ -183,13 +199,11 @@ class ABIRegistry(Copyable, BaseRegistry):
             entry in the registry via the :any:`unregister` method and its
             variants.
         """
-
     def unregister(self, label: str | None) -> None:
         """
         Unregisters the entries in the encoder and decoder registries which
         have the label ``label``.
         """
-
     def has_encoder(self, type_str: TypeStr) -> bool:
         """
         Returns ``True`` if an encoder is found for the given type string
@@ -197,7 +211,6 @@ class ABIRegistry(Copyable, BaseRegistry):
         :class:`~faster_eth_abi.exceptions.MultipleEntriesFound` if multiple encoders
         are found.
         """
-
     def copy(self) -> Self:
         """
         Copies a registry such that new registrations can be made or existing

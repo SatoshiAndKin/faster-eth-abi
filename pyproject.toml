@@ -2,7 +2,7 @@
 requires = [
 	"setuptools",
 	"wheel",
-	"mypy[mypyc]==2.3.0",
+	"mypy[mypyc]>=2.2.0,<=2.3.0",
 	"mypy_extensions==1.1.0",
 	# for all other system configurations, cchecksum is pinned and installed with faster-eth-utils
 	"cchecksum==0.4.5; platform_system == 'Linux' and python_version == '3.14' and platform_machine == 'i686'",
@@ -184,3 +184,16 @@ values = [
 filename = "setup.py"
 search = "version=\"{current_version}\""
 replace = "version=\"{new_version}\""
+
+# Consumer assertions must retain mypy defaults; source-build ignores do not apply.
+[tool.consumer-mypy]
+files = "tests/typecheck/{impl}/decode/{suite}/len_{length}"
+
+[tool.consumer-mypy.workers]
+"1" = 1
+"2" = 1
+"3" = 2
+"4" = 2
+
+[tool.consumer-mypy.settings]
+follow_imports = "silent"
