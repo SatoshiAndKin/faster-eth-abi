@@ -248,7 +248,11 @@ def test_encode_bytes_xx(bytes_value, value_bit_size, data_byte_size):
     assert encoded_value == expected_value
 
 
-@settings(max_examples=250)
+# This property checks values and errors, not wall-clock performance. Windows CI
+# reported 510-913 ms first calls and 0.01-0.02 ms repeats for the same examples.
+@settings(max_examples=250, deadline=None)
+@example(string_value="\U000f9571å\x82+,êÝeÛ\x86\U000df922æ\U000630c0¾Qu")
+@example(string_value="¨$\U000e47dbÔe-(Ê")
 @given(
     string_value=st.one_of(
         st.none(),
