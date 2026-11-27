@@ -1,140 +1,147 @@
 name: MyPy (Fast Lane)
-
-on:
+'on':
   push:
-    branches: [master, main]
+    branches:
+    - master  # blocklint: exact branch name pragma
+    - main
     paths:
-      - '.github/workflows/mypy.yaml'
-      - '.github/workflows/mypy-assurance.yaml'
-      - "tests/typecheck/**.py"
-      - "faster_eth_abi/**"
-      - "setup.py"
-      - "pyproject.toml"
-      - "tox.ini"
-      - "!eth-abi-stubs/**"
+    - .github/workflows/mypy.yaml
+    - .github/workflows/mypy-assurance.yaml
+    - tests/typecheck/**.py
+    - faster_eth_abi/**
+    - setup.py
+    - pyproject.toml
+    - tox.ini
+    - '!eth-abi-stubs/**'
   pull_request:
-    branches: [master, main]
+    branches:
+    - master  # blocklint: exact branch name pragma
+    - main
     paths:
-      - '.github/workflows/mypy.yaml'
-      - '.github/workflows/mypy-assurance.yaml'
-      - "tests/typecheck/**.py"
-      - "faster_eth_abi/**"
-      - "setup.py"
-      - "pyproject.toml"
-      - "tox.ini"
-      - "!eth-abi-stubs/**"
-  workflow_dispatch:
-
+    - '**'
+  workflow_dispatch: null
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
+  ci_changes:
+    name: Select validation paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_validation: ${{ steps.paths.outputs.run_validation }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - id: paths
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CI_INCLUDE_PATHS: '[".github/workflows/mypy.yaml", ".github/workflows/mypy-assurance.yaml", "tests/typecheck/**.py",
+          "faster_eth_abi/**", "setup.py", "pyproject.toml", "tox.ini", "!eth-abi-stubs/**", "requirements*.txt",
+          "scripts/generate_overload_tests.py", "scripts/run_overload_tests.py", ".github/scripts/prepare_consumer_workspace.py", ".github/scripts/test_overload_generation.py"]'
+        CI_IGNORE_PATHS: '[]'
+      run: python3 .github/scripts/ci_changes.py
   mypy-typecheck:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
-        impl: ["codec", "abi"]
-        suite: ["fixed", "variable"]
+        python-version:
+        - '3.12'
+        impl:
+        - codec
+        - abi
+        suite:
+        - fixed
+        - variable
     steps:
-      - name: Checkout minimal code (no test data)
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
+    - name: Checkout minimal code (no test data)
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - name: Set up Python
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: 'python -m pip install --upgrade pip
 
-      - name: Set up Python
-        uses: actions/setup-python@v7.0.0
-        with:
-          python-version: ${{ matrix.python-version }}
+        pip install .[mypy]
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install .[mypy]
+        '
+    - name: Verify consumer check failure handling
+      run: python -m unittest discover -s .github/scripts -p test_overload_runner.py
+    - name: Prepare installed consumer validation
+      run: python .github/scripts/prepare_consumer_workspace.py
+    - name: Verify sampled assertion coverage
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python -m unittest discover -s .github/scripts -p test_overload_generation.py
+    - name: Restore .mypy_cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ runner.temp }}/abi-consumer/.mypy_cache
+        key: test-data-mypy-cache-${{ runner.os }}-x64-${{ matrix.impl }}-${{ matrix.suite }}
+        restore-keys: 'mypy-cache-${{ runner.os }}-x64-${{ hashFiles(''**/*.py'', ''pyproject.toml'') }}
 
-      - name: Restore .mypy_cache
-        uses: actions/cache/restore@v6
-        with:
-          path: .mypy_cache
-          # use an overload-test-specific key so we dont grow the base cache with a bunch of testdata stuff
-          key: test-data-mypy-cache-${{ runner.os }}-x64-${{ matrix.impl }}-${{ matrix.suite }}
-          # if not found, restore from the base .mypy_cache cache
-          restore-keys: |
-            mypy-cache-${{ runner.os }}-x64-${{ hashFiles('**/*.py', 'pyproject.toml') }}
-            mypy-cache-${{ runner.os }}-x64-
+          mypy-cache-${{ runner.os }}-x64-
 
-      # Generate and check len_1
-      - name: Generate test data for len_1
-        run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths 1
-      - name: Run mypy on all len_1 typecheck files (sequential)
-        run: |
-          set -e
-          set -o pipefail
-          for file in $(find tests/typecheck/${{ matrix.impl }}/decode/${{ matrix.suite }}/len_1/ -name '*.py'); do
-            start=$(date +%s.%N)
-            mypy --config-file=/dev/null --follow-imports=silent "$file" 2>&1 | grep -v "/dev/null: No \[mypy\] section in config file" || true
-            status=$?
-            end=$(date +%s.%N)
-            duration=$(echo "$end - $start" | bc)
-            echo "[MYPY-TIME] $file took ${duration}s"
-            if [ $status -ne 0 ]; then exit $status; fi
-          done
+          '
+    - name: Generate test data for len_1
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
+        1
+    - name: Check all generated assertions for len_1
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 1
+    - name: Generate test data for len_2
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
+        2
+    - name: Check all generated assertions for len_2
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 2
+    - name: Generate test data for len_3 (sample 1/40)
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
+        3 --sample-1-of-x 40
+    - name: Check all generated assertions for len_3
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 3
+    - name: Generate test data for len_4 (sample 1/600)
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
+        4 --sample-1-of-x 600
+    - name: Check all generated assertions for len_4
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 4
+    needs:
+    - ci_changes
+    if: ${{ needs.ci_changes.outputs.run_validation == 'true' }}
+    permissions:
+      contents: read
+  ci_gate:
+    name: CI (mypy.yaml)
+    if: ${{ !cancelled() }}
+    needs:
+    - ci_changes
+    - mypy-typecheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Verify validation contract
+      env:
+        CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        CI_EXPECTED_JOBS: '["mypy-typecheck"]'
+      run: 'python3 -m unittest discover -s .github/scripts -p test_ci_contract.py
 
-      # Generate and check len_2
-      - name: Generate test data for len_2
-        run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths 2
-      - name: Run mypy on all len_2 typecheck files (sequential)
-        run: |
-          set -e
-          set -o pipefail
-          for file in $(find tests/typecheck/${{ matrix.impl }}/decode/${{ matrix.suite }}/len_2/ -name '*.py'); do
-            start=$(date +%s.%N)
-            mypy --config-file=/dev/null --follow-imports=silent "$file" 2>&1 | grep -v "/dev/null: No \[mypy\] section in config file" || true
-            status=$?
-            end=$(date +%s.%N)
-            duration=$(echo "$end - $start" | bc)
-            echo "[MYPY-TIME] $file took ${duration}s"
-            if [ $status -ne 0 ]; then exit $status; fi
-          done
-
-      # Generate and check 2.5% of len_3 (sample 1/40)
-      - name: Generate test data for len_3 (sample 1/40)
-        run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths 3 --sample-1-of-x 40
-      - name: Run mypy on all len_3 typecheck files (parallel, 2 jobs)
-        run: |
-          set -e
-          set -o pipefail
-          files=$(find tests/typecheck/${{ matrix.impl }}/decode/${{ matrix.suite }}/len_3/ -name '*.py')
-          echo "$files" | parallel -j 2 --eta '
-            start=$(date +%s.%N)
-            mypy --config-file=/dev/null --follow-imports=silent {} 2>&1 | grep -v "/dev/null: No \[mypy\] section in config file" || true
-            status=$?
-            end=$(date +%s.%N)
-            duration=$(echo "$end - $start" | bc)
-            echo "[MYPY-TIME] {} took ${duration}s"
-            exit $status
-          ' > >(grep -v "cannot open /dev/tty")
-          status=${PIPESTATUS[0]}
-          if [ $status -ne 0 ]; then exit $status; fi
-
-      # Generate and check 0.17% of len_4 (sample 1/600)
-      - name: Generate test data for len_4 (sample 1/600)
-        run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths 4 --sample-1-of-x 600
-      - name: Run mypy on all len_4 typecheck files (parallel, 2 jobs)
-        run: |
-          set -e
-          set -o pipefail
-          files=$(find tests/typecheck/${{ matrix.impl }}/decode/${{ matrix.suite }}/len_4/ -name '*.py')
-          echo "$files" | parallel -j 2 --eta '
-            start=$(date +%s.%N)
-            mypy --config-file=/dev/null --follow-imports=silent {} 2>&1 | grep -v "/dev/null: No \[mypy\] section in config file" || true
-            status=$?
-            end=$(date +%s.%N)
-            duration=$(echo "$end - $start" | bc)
-            echo "[MYPY-TIME] {} took ${duration}s"
-            exit $status
-          ' > >(grep -v "cannot open /dev/tty")
-          status=${PIPESTATUS[0]}
-          if [ $status -ne 0 ]; then exit $status; fi
+        python3 .github/scripts/ci_gate.py'
+permissions:
+  contents: read

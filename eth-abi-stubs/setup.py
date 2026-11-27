@@ -3,7 +3,7 @@ from setuptools import (
 )
 
 setup(
-    name="types-eth-utils",
+    name="eth-abi-stubs",
     version="5.2.0.20260803",
     description="Type stubs for eth-abi and faster-eth-abi",
     author="BobTheBuidler",
@@ -13,8 +13,8 @@ setup(
     keywords="ethereum",
     packages=["faster_eth_abi", "eth_abi"],
     package_data={
-        "faster_eth_abi": ["*.pyi", "py.typed"],
-        "eth_abi": ["*.pyi", "py.typed"],
+        "faster_eth_abi": ["*.pyi", "**/*.pyi", "py.typed"],
+        "eth_abi": ["*.pyi", "**/*.pyi", "py.typed"],
     },
     install_requires=[],
     python_requires=">=3.10,",

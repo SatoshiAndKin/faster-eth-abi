@@ -91,9 +91,11 @@ def test_abi_decode_wrong_data_param_type_raises(data, strict):
 @pytest.mark.parametrize(
     "types",
     (
-        # "",  This parametrization is disabled because we don't type check `types` and when iterated upon, `""` yields no items and ends iteration.
+        # "",  This parametrization is disabled because we don't type check `types` and
+        # when iterated upon, `""` yields no items and ends iteration.
         123,
-        # b"",  This parametrization is disabled because we don't type check `types` and when iterated upon, `""` yields no items and ends iteration.
+        # b"",  This parametrization is disabled because we don't type check `types` and
+        # when iterated upon, `""` yields no items and ends iteration.
         b"\xff",
         b"david attenborough",
         bytearray(b"\x01\xff"),
@@ -109,8 +111,10 @@ def test_abi_decode_wrong_types_param_type_raises(types, strict):
     with pytest.raises(
         expected_exc,
         # NOTE The `match` arg was commented out because faster-eth-abi might not raise
-        # the same exception, but we should still test that it raises an Exception like eth-abi
-        # match=f"The `types` value type must be one of list or tuple. Got {type(types)}",
+        # the same exception, but we should still test that it raises an Exception like
+        # eth-abi
+        # match=f"The `types` value type must be one of list or tuple. Got
+        # {type(types)}",
     ):
         decode(types, b"\x00" * 32, strict=strict)
 

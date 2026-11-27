@@ -1,13 +1,24 @@
+from typing import (
+    Callable,
+    TypeVar,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+
 from ._grammar import (
     ABIType as ABIType,
     BasicType as BasicType,
     TupleType as TupleType,
     normalize as normalize,
 )
-from .base import BaseCoder as BaseCoder
-from .grammar import parse as parse
-from _typeshed import Incomplete
-from typing import Callable, TypeVar
+from .base import (
+    BaseCoder as BaseCoder,
+)
+from .grammar import (
+    parse as parse,
+)
 
 TType = TypeVar("TType", bound=type["BaseCoder"])
 OldFromTypeStr: Incomplete

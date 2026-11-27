@@ -3,7 +3,7 @@ name: "Cancel closed PR: stubgen.yaml"
 on:
   pull_request:
     types: [closed]
-    branches: ["main", "master"]
+    branches: ["main", "master"]  # blocklint: technical identifier pragma
 
 permissions: {}
 

@@ -1,14 +1,13 @@
 """
 compare_benchmark_results.py
 
-Compares the two implementations in each benchmark group from a pytest-benchmark parsed results JSON file,
-grouped by submodule.
-For each submodule and group (e.g., "abi_to_signature"), finds both implementations
-(e.g., "test_abi_to_signature" and "test_faster_abi_to_signature"), computes the percent change
-in mean execution time, speedup percent, and x factor, and writes a diff JSON file summarizing the results.
+Compares the two implementations in each benchmark group from a pytest-benchmark parsed
+results JSON file, grouped by submodule. For each submodule and group (e.g.,
+"abi_to_signature"), finds both implementations (e.g., "test_abi_to_signature" and
+"test_faster_abi_to_signature"), computes the percent change in mean execution time,
+speedup percent, and x factor, and writes a diff JSON file summarizing the results.
 
-Usage:
-    python compare_benchmark_results.py <results.json> [output.json]
+Usage:     python compare_benchmark_results.py <results.json> [output.json]
 """
 
 import json

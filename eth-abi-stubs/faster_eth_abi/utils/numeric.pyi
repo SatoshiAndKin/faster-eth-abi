@@ -1,6 +1,12 @@
 import decimal
-from _typeshed import Incomplete
-from typing import Callable, Final
+from typing import (
+    Callable,
+    Final,
+)
+
+from _typeshed import (
+    Incomplete,
+)
 
 ABI_DECIMAL_PREC: Final[int]
 abi_decimal_context: Final[Incomplete]

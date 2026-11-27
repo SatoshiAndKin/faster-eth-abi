@@ -1,4 +1,31 @@
 import decimal
+from typing import (
+    Any,
+    Final,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+
+from faster_eth_abi.exceptions import (
+    InsufficientDataBytes as InsufficientDataBytes,
+    InvalidPointer as InvalidPointer,
+    NonEmptyPaddingBytes as NonEmptyPaddingBytes,
+)
+from faster_eth_abi.io import (
+    ContextFramesBytesIO as ContextFramesBytesIO,
+)
+from faster_eth_abi.typing import (
+    T as T,
+)
+from faster_eth_abi.utils.localcontext import (
+    DECIMAL_CONTEXT as DECIMAL_CONTEXT,
+)
+from faster_eth_abi.utils.numeric import (
+    ceil32 as ceil32,
+)
+
 from .decoding import (
     BaseArrayDecoder as BaseArrayDecoder,
     ByteStringDecoder as ByteStringDecoder,
@@ -12,17 +39,6 @@ from .decoding import (
     TupleDecoder as TupleDecoder,
     UnsignedFixedDecoder as UnsignedFixedDecoder,
 )
-from _typeshed import Incomplete
-from faster_eth_abi.exceptions import (
-    InsufficientDataBytes as InsufficientDataBytes,
-    InvalidPointer as InvalidPointer,
-    NonEmptyPaddingBytes as NonEmptyPaddingBytes,
-)
-from faster_eth_abi.io import ContextFramesBytesIO as ContextFramesBytesIO
-from faster_eth_abi.typing import T as T
-from faster_eth_abi.utils.localcontext import DECIMAL_CONTEXT as DECIMAL_CONTEXT
-from faster_eth_abi.utils.numeric import ceil32 as ceil32
-from typing import Any, Final
 
 Decimal: Final[Incomplete]
 

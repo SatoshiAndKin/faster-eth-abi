@@ -65,9 +65,8 @@ skip_mypyc = any(
 ext_modules: list[Extension] = []
 
 if not skip_mypyc:
-
     # Compile the interpreted python files to C
-    
+
     flags: list[str] = [
         # all of these are safe to disable long term
         "--disable-error-code=override",
@@ -113,10 +112,10 @@ setup(
         "Documentation": "https://eth-abi.readthedocs.io/en/stable/",
         "Release Notes": "https://github.com/BobTheBuidler/faster-eth-abi/releases",
         "Issues": "https://github.com/BobTheBuidler/faster-eth-abi/issues",
-        "Source - Precompiled (.py)": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/faster_eth_utils",
-        "Source - Compiled (.c)": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/build",
-        "Benchmarks": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/benchmarks",
-        "Benchmarks - Results": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/benchmarks/results",
+        "Source - Precompiled (.py)": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/faster_eth_utils",  # blocklint: technical identifier pragma
+        "Source - Compiled (.c)": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/build",  # blocklint: technical identifier pragma
+        "Benchmarks": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/benchmarks",  # blocklint: technical identifier pragma
+        "Benchmarks - Results": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/benchmarks/results",  # blocklint: technical identifier pragma
         "Original": "https://github.com/ethereum/eth-abi",
     },
     include_package_data=True,

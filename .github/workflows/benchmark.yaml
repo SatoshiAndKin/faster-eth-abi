@@ -2,7 +2,7 @@ name: Benchmark Suite
 
 on:
   pull_request:
-    branches: [main, master]
+    branches: [main, master]  # blocklint: technical identifier pragma
     paths:
       - ".github/workflows/benchmark.yaml"
       - "faster_eth_abi/**"
@@ -12,7 +12,7 @@ on:
       - "requirements*.txt"
       - "!eth-abi-stubs/**"
   push:
-    branches: [main, master]
+    branches: [main, master]  # blocklint: technical identifier pragma
     paths:
       - ".github/workflows/benchmark.yaml"
       - "faster_eth_abi/**"
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Build wheel with mypycify
         id: mypycify
-        uses: BobTheBuidler/mypycify@master
+        uses: BobTheBuidler/mypycify@master  # blocklint: technical identifier pragma
         with:
           python-version: "3.14"
           hash-key: |

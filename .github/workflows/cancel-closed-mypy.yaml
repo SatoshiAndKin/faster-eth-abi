@@ -3,7 +3,7 @@ name: "Cancel closed PR: mypy.yaml"
 on:
   pull_request:
     types: [closed]
-    branches: ["master", "main"]
+    branches: ["master", "main"]  # blocklint: technical identifier pragma
 
 permissions: {}
 

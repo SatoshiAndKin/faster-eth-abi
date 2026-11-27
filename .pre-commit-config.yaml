@@ -8,7 +8,7 @@ repos:
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
+    rev: v3.21.2
     hooks:
     -   id: pyupgrade
         args: [--py38-plus]
@@ -16,6 +16,7 @@ repos:
     rev: 23.9.1
     hooks:
     -   id: black
+        args: [--workers=1]
 -   repo: https://github.com/PyCQA/flake8
     rev: 6.1.0
     hooks:
@@ -52,10 +53,17 @@ repos:
 #        language: system
 #        always_run: true
 #        pass_filenames: false
--   repo: https://github.com/PrincetonUniversity/blocklint
-    rev: v0.2.5
+# The release wheel has the same program/data files as v0.2.5. Its source build
+# unnecessarily installs keyring/CFFI, which cannot build on Linux CPython 3.13t.
+-   repo: local
     hooks:
     -   id: blocklint
+        name: blocklint
+        entry: blocklint
+        language: python
+        types: [text]
+        additional_dependencies:
+        -   'blocklint @ https://files.pythonhosted.org/packages/ea/61/c782cd48f81b1e4641adcdc817bfc97bc4dca28e8f5405ccf3005fc8c590/blocklint-0.2.5-py2.py3-none-any.whl#sha256=c1ee4169551bf04043ad23d3e502df1481ff39118e667da4682136370f1dfd11'
         exclude: 'docs/Makefile|docs/release_notes.rst|tox.ini|.github/workflows/compile.yaml'
 -   repo: local
     hooks:

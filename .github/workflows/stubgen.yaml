@@ -1,189 +1,253 @@
 name: Generate Stubs Package
-
-on:
-  push:
-    branches: [main, master]
-    paths:
-     - '.github/workflows/stubgen.yaml'
-     - 'faster_eth_abi/**.py'
-     - 'pyproject.toml'
-     - 'setup.py'
-  pull_request:
-    branches: [main, master]
-    paths:
-     - '.github/workflows/stubgen.yaml'
-     - 'faster_eth_abi/**.py'
-     - 'pyproject.toml'
-     - 'setup.py'
-  workflow_dispatch:
-
 permissions:
-  contents: write
-  pull-requests: write
-
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
+  ci_changes:
+    name: Select validation paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_validation: ${{ steps.paths.outputs.run_validation }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - id: paths
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CI_INCLUDE_PATHS: '[".github/workflows/stubgen.yaml", "faster_eth_abi/**.py", "pyproject.toml", "setup.py",
+          "eth-abi-stubs/**", "requirements*.txt"]'
+        CI_IGNORE_PATHS: '[]'
+      run: python3 .github/scripts/ci_changes.py
   stubgen:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - name: Set up Python
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: '3.11'
+    - name: Cache pip
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements-mypy.txt') }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: '${{ runner.os }}-pip-
 
-      - name: Set up Python
-        uses: actions/setup-python@v7.0.0
-        with:
-          python-version: '3.11'
+          '
+    - name: Install mypy, black, & requirements
+      run: pip install black==23.9.1 isort==5.12.0 -r requirements-mypy.txt
+    - name: Delete existing stubs
+      run: rm -rf eth-abi-stubs/eth_abi eth-abi-stubs/faster_eth_abi
+    - name: Generate stubs with stubgen
+      run: stubgen faster_eth_abi -o eth-abi-stubs --include-docstrings -v
+    - name: Migrate encode/decode stubs from codec.pyi to abi.pyi
+      run: "awk '\n/^@overload/ {in_overload=1; block=\"\"; block=block $0 \"\\n\"; next}\n/^def (encode|decode)\\\
+        (/ {\n  in_func=1; block=block $0 \"\\n\"; next\n}\nin_func && /^[ ]{4}/ {block=block $0 \"\\n\"; next}\n\
+        (in_func || in_overload) && !/^[ ]{4}/ {\n  in_func=0; in_overload=0;\n  gsub(/^ {4}/, \"\", block)\n  gsub(/\\\
+        (self,? ?/, \"(\", block)\n  print block \"\\n\"\n  block=\"\"\n}\n' eth-abi-stubs/faster_eth_abi/codec.pyi\
+        \ >> eth-abi-stubs/faster_eth_abi/abi.pyi\n"
+    - name: Create py.typed
+      run: touch eth-abi-stubs/faster_eth_abi/py.typed
+    - name: Copy typing.py to typing.pyi
+      run: cp faster_eth_abi/typing.py eth-abi-stubs/faster_eth_abi/typing.pyi
+    - name: Run Black formatter
+      run: |
+        black eth-abi-stubs
+        isort eth-abi-stubs
+    - name: Duplicate stubs for eth_abi
+      run: cp -r eth-abi-stubs/faster_eth_abi eth-abi-stubs/eth_abi
+    - name: Remove modules specific to faster-eth-abi
+      run: 'rm eth-abi-stubs/eth_abi/_codec.pyi
 
-      - name: Cache pip
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-mypy.txt') }}-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+        rm eth-abi-stubs/eth_abi/_decoding.pyi
 
-      - name: Install mypy, black, & requirements
-        run: pip install black -r requirements-mypy.txt
+        rm eth-abi-stubs/eth_abi/_encoding.pyi
 
-      - name: Delete existing stubs
-        run: rm -rf eth-abi-stubs/eth_abi eth-abi-stubs/faster_eth_abi
+        rm eth-abi-stubs/eth_abi/_grammar.pyi
 
-      - name: Generate stubs with stubgen
-        run: stubgen faster_eth_abi -o eth-abi-stubs --include-docstrings -v
+        rm eth-abi-stubs/eth_abi/io.pyi
 
-      - name: Migrate encode/decode stubs from codec.pyi to abi.pyi
-        run: |
-          awk '
-          /^@overload/ {in_overload=1; block=""; block=block $0 "\n"; next}
-          /^def (encode|decode)\(/ {
-            in_func=1; block=block $0 "\n"; next
-          }
-          in_func && /^[ ]{4}/ {block=block $0 "\n"; next}
-          (in_func || in_overload) && !/^[ ]{4}/ {
-            in_func=0; in_overload=0;
-            gsub(/^ {4}/, "", block)
-            gsub(/\(self,? ?/, "(", block)
-            print block "\n"
-            block=""
-          }
-          ' eth-abi-stubs/faster_eth_abi/codec.pyi >> eth-abi-stubs/faster_eth_abi/abi.pyi
+        '
+    - name: Remove modules where definitions differ from eth-abi
+      run: 'rm eth-abi-stubs/eth_abi/exceptions.pyi
 
-      - name: Create py.typed
-        run: touch eth-abi-stubs/faster_eth_abi/py.typed
+        '
+    - name: Prepend stub-only docstring to eth_abi/typing.pyi
+      run: 'docstring=''"""This file exists in faster_eth_abi but not in eth_abi. It is present here only for type
+        checking and is crucial for the stubs package to function. Do not expect eth_abi.typing to exist at runtime."""''
 
-      - name: Copy typing.py to typing.pyi
-        run: cp faster_eth_abi/typing.py eth-abi-stubs/faster_eth_abi/typing.pyi
+        tmpfile=$(mktemp)
 
-      - name: Run Black formatter
-        run: black eth-abi-stubs
+        echo "$docstring" > $tmpfile
 
-      - name: Duplicate stubs for eth_abi
-        run: cp -r eth-abi-stubs/faster_eth_abi eth-abi-stubs/eth_abi
+        cat eth-abi-stubs/eth_abi/typing.pyi >> $tmpfile
 
-      - name: Remove modules specific to faster-eth-abi
-        run: |
-          rm eth-abi-stubs/eth_abi/_codec.pyi
-          rm eth-abi-stubs/eth_abi/_decoding.pyi
-          rm eth-abi-stubs/eth_abi/_encoding.pyi
-          rm eth-abi-stubs/eth_abi/_grammar.pyi
-          rm eth-abi-stubs/eth_abi/io.pyi
+        mv $tmpfile eth-abi-stubs/eth_abi/typing.pyi
 
-      - name: Remove modules where definitions differ from eth-abi
-        run: |
-          rm eth-abi-stubs/eth_abi/exceptions.pyi
+        '
+    - name: Prepend stub-only docstring to eth_abi/from_type_str.pyi
+      run: 'docstring=''"""This file exists in faster_eth_abi but not in eth_abi. It is present here only for type
+        checking and is crucial for the stubs package to function. Do not expect eth_abi.typing to exist at runtime."""''
 
-      - name: Prepend stub-only docstring to eth_abi/typing.pyi
-        run: |
-          docstring='"""This file exists in faster_eth_abi but not in eth_abi. It is present here only for type checking and is crucial for the stubs package to function. Do not expect eth_abi.typing to exist at runtime."""'
-          tmpfile=$(mktemp)
-          echo "$docstring" > $tmpfile
-          cat eth-abi-stubs/eth_abi/typing.pyi >> $tmpfile
-          mv $tmpfile eth-abi-stubs/eth_abi/typing.pyi
+        tmpfile=$(mktemp)
 
-      - name: Prepend stub-only docstring to eth_abi/from_type_str.pyi
-        run: |
-          docstring='"""This file exists in faster_eth_abi but not in eth_abi. It is present here only for type checking and is crucial for the stubs package to function. Do not expect eth_abi.typing to exist at runtime."""'
-          tmpfile=$(mktemp)
-          echo "$docstring" > $tmpfile
-          cat eth-abi-stubs/eth_abi/typing.pyi >> $tmpfile
-          mv $tmpfile eth-abi-stubs/eth_abi/typing.pyi
+        echo "$docstring" > $tmpfile
 
-      - name: Extract eth-abi version from requirements.txt and set stubs version
-        id: get_eth_abi_version
-        run: |
-          ETH_ABI_VERSION=$(grep '^eth-abi==' requirements.txt | head -n1 | cut -d'=' -f3)
-          DATE=$(date +%Y%m%d)
-          STUBS_VERSION="$ETH_ABI_VERSION.$DATE"
-          echo "STUBS_VERSION=$STUBS_VERSION" >> $GITHUB_ENV
+        cat eth-abi-stubs/eth_abi/from_type_str.pyi >> $tmpfile
 
-      - name: Generate egg-info
-        run: python setup.py egg_info
+        mv $tmpfile eth-abi-stubs/eth_abi/from_type_str.pyi
 
-      - name: Extract metadata from egg-info
-        id: get_metadata
-        run: |
-          PYTHON_REQUIRES=$(grep '^Requires-Python:' *.egg-info/PKG-INFO | head -n1 | awk '{print $2}')
-          URL=$(grep '^Home-page:' *.egg-info/PKG-INFO | head -n1 | cut -d' ' -f2-)
-          LICENSE=$(grep '^License:' *.egg-info/PKG-INFO | head -n1 | cut -d' ' -f2-)
-          KEYWORDS=$(grep '^Keywords:' *.egg-info/PKG-INFO | head -n1 | cut -d' ' -f2-)
-          if [ -z "$PYTHON_REQUIRES" ]; then
-            PYTHON_REQUIRES=">=3.7"
-          fi
-          if [ -z "$URL" ]; then
-            URL="https://github.com/BobTheBuidler/faster-eth-abi"
-          fi
-          if [ -z "$LICENSE" ]; then
-            LICENSE="MIT"
-          fi
-          if [ -z "$KEYWORDS" ]; then
-            KEYWORDS="ethereum"
-          fi
-          echo "PYTHON_REQUIRES=$PYTHON_REQUIRES" >> $GITHUB_ENV
-          echo "URL=$URL" >> $GITHUB_ENV
-          echo "LICENSE=$LICENSE" >> $GITHUB_ENV
-          echo "KEYWORDS=$KEYWORDS" >> $GITHUB_ENV
+        '
+    - name: Extract eth-abi version from requirements.txt and set stubs version
+      id: get_eth_abi_version
+      run: 'ETH_ABI_VERSION=$(grep ''^eth-abi=='' requirements.txt | head -n1 | cut -d''='' -f3)
 
-      - name: Create setup.py for eth-abi-stubs from template
-        run: |
-          cp eth-abi-stubs/setup.template.py eth-abi-stubs/setup.py
-          sed -i "s/{{VERSION}}/$STUBS_VERSION/g" eth-abi-stubs/setup.py
-          sed -i "s/{{PYTHON_REQUIRES}}/$PYTHON_REQUIRES/g" eth-abi-stubs/setup.py
-          sed -i "s|{{URL}}|$URL|g" eth-abi-stubs/setup.py
-          sed -i "s|{{LICENSE}}|$LICENSE|g" eth-abi-stubs/setup.py
-          sed -i "s|{{KEYWORDS}}|$KEYWORDS|g" eth-abi-stubs/setup.py
+        DATE=$(date +%Y%m%d)
 
-      - name: Check for stubs changes
-        id: stubs_diff
-        run: |
-          git add eth-abi-stubs/
-          if git diff --cached --quiet; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            # Check if the only change is a version bump in setup.py
-            if git diff --cached -- eth-abi-stubs/setup.py | grep -E '^\+version *= *["'\''].*["'\'']' | grep -q . && \
-               [ "$(git diff --cached --name-only | grep -v 'eth-abi-stubs/setup.py' | wc -l)" -eq 0 ] && \
-               [ "$(git diff --cached eth-abi-stubs/setup.py | grep -vE '^([-+])version *= *[\"'\''].*[\"'\'']' | grep -E '^[-+]' | wc -l)" -eq 0 ]; then
-              # Only version line changed in setup.py
-              git reset HEAD eth-abi-stubs/setup.py
-              echo "changed=false" >> $GITHUB_OUTPUT
-            else
-              echo "changed=true" >> $GITHUB_OUTPUT
-            fi
-          fi
+        STUBS_VERSION="$ETH_ABI_VERSION.$DATE"
 
-      - name: Poosh Stubs
-        if: steps.stubs_diff.outputs.changed == 'true'
-        uses: BobTheBuidler/poosh@v0.1.0
-        with:
-          branch: auto/stubgen/${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          trigger-pr-number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
-          trigger-branch: ${{ github.head_ref || github.ref_name }}
-          pr-body: |
-            This PR updates eth-abi-stubs based on the latest implementation. Generated by GitHub Actions.
-            ${{ github.event_name == 'pull_request' && format('Triggered by PR: #{0} ({1})', github.event.pull_request.number, github.event.pull_request.html_url) || '' }}
-          commit-message: "chore(mypy): update type stubs [automated]"
+        echo "STUBS_VERSION=$STUBS_VERSION" >> $GITHUB_ENV
+
+        '
+    - name: Generate egg-info
+      run: python setup.py egg_info
+    - name: Extract metadata from egg-info
+      id: get_metadata
+      run: "PYTHON_REQUIRES=$(grep '^Requires-Python:' *.egg-info/PKG-INFO | head -n1 | awk '{print $2}')\nURL=$(grep\
+        \ '^Home-page:' *.egg-info/PKG-INFO | head -n1 | cut -d' ' -f2-)\nLICENSE=$(grep '^License:' *.egg-info/PKG-INFO\
+        \ | head -n1 | cut -d' ' -f2-)\nKEYWORDS=$(grep '^Keywords:' *.egg-info/PKG-INFO | head -n1 | cut -d' '\
+        \ -f2-)\nif [ -z \"$PYTHON_REQUIRES\" ]; then\n  PYTHON_REQUIRES=\">=3.7\"\nfi\nif [ -z \"$URL\" ]; then\n\
+        \  URL=\"https://github.com/BobTheBuidler/faster-eth-abi\"\nfi\nif [ -z \"$LICENSE\" ]; then\n  LICENSE=\"\
+        MIT\"\nfi\nif [ -z \"$KEYWORDS\" ]; then\n  KEYWORDS=\"ethereum\"\nfi\necho \"PYTHON_REQUIRES=$PYTHON_REQUIRES\"\
+        \ >> $GITHUB_ENV\necho \"URL=$URL\" >> $GITHUB_ENV\necho \"LICENSE=$LICENSE\" >> $GITHUB_ENV\necho \"KEYWORDS=$KEYWORDS\"\
+        \ >> $GITHUB_ENV\n"
+    - name: Create setup.py for eth-abi-stubs from template
+      run: 'cp eth-abi-stubs/setup.template.py eth-abi-stubs/setup.py
+
+        sed -i "s/{{VERSION}}/$STUBS_VERSION/g" eth-abi-stubs/setup.py
+
+        sed -i "s/{{PYTHON_REQUIRES}}/$PYTHON_REQUIRES/g" eth-abi-stubs/setup.py
+
+        sed -i "s|{{URL}}|$URL|g" eth-abi-stubs/setup.py
+
+        sed -i "s|{{LICENSE}}|$LICENSE|g" eth-abi-stubs/setup.py
+
+        sed -i "s|{{KEYWORDS}}|$KEYWORDS|g" eth-abi-stubs/setup.py
+
+        '
+    - name: Check for stubs changes
+      id: stubs_diff
+      run: "git add eth-abi-stubs/\nif git diff --cached --quiet; then\n  echo \"changed=false\" >> $GITHUB_OUTPUT\n\
+        else\n  # Check if the only change is a version bump in setup.py\n  if git diff --cached -- eth-abi-stubs/setup.py\
+        \ | grep -E '^\\+version *= *[\"'\\''].*[\"'\\'']' | grep -q . && \\\n     [ \"$(git diff --cached --name-only\
+        \ | grep -v 'eth-abi-stubs/setup.py' | wc -l)\" -eq 0 ] && \\\n     [ \"$(git diff --cached eth-abi-stubs/setup.py\
+        \ | grep -vE '^([-+])version *= *[\\\"'\\''].*[\\\"'\\'']' | grep -E '^[-+]' | wc -l)\" -eq 0 ]; then\n\
+        \    # Only version line changed in setup.py\n    git reset HEAD eth-abi-stubs/setup.py\n    echo \"changed=false\"\
+        \ >> $GITHUB_OUTPUT\n  else\n    echo \"changed=true\" >> $GITHUB_OUTPUT\n  fi\nfi\n"
+    - name: Build the generated stub distribution
+      run: 'python -m pip install build
+
+        python -m build --wheel --outdir dist-stubs eth-abi-stubs
+
+        '
+    - name: Verify stub wheel identity and modules
+      run: |
+        python -m unittest discover -s .github/scripts -p test_stub_wheel.py
+        python .github/scripts/verify_stub_wheel.py
+    - name: Upload generated stubs and distribution
+      uses: actions/upload-artifact@v7
+      with:
+        name: generated-stubs
+        path: 'eth-abi-stubs/
+
+          '
+        if-no-files-found: error
+    - name: Upload stub wheel
+      uses: actions/upload-artifact@v7
+      with:
+        name: stub-wheel
+        path: dist-stubs/*.whl
+        if-no-files-found: error
+    needs:
+    - ci_changes
+    if: ${{ needs.ci_changes.outputs.run_validation == 'true' }}
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.stubs_diff.outputs.changed }}
+  publish-stubs:
+    name: Publish opted-in stubs
+    needs:
+    - stubgen
+    if: ${{ github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch) && (github.repository == 'BobTheBuidler/faster-eth-abi' || vars.STUBS_PUBLISH_ENABLED
+      == 'true') && needs.stubgen.outputs.changed == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
+      with:
+        name: generated-stubs
+        path: eth-abi-stubs/
+    - name: Poosh Stubs
+      uses: BobTheBuidler/poosh@v0.1.0
+      with:
+        branch: auto/stubgen/${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+        trigger-pr-number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
+        trigger-branch: ${{ github.head_ref || github.ref_name }}
+        pr-body: 'This PR updates eth-abi-stubs based on the latest implementation. Generated by GitHub Actions.
+
+          ${{ github.event_name == ''pull_request'' && format(''Triggered by PR: #{0} ({1})'', github.event.pull_request.number,
+          github.event.pull_request.html_url) || '''' }}
+
+          '
+        commit-message: 'chore(mypy): update type stubs [automated]'
+  ci_gate:
+    name: CI (stubgen.yaml)
+    if: ${{ !cancelled() }}
+    needs:
+    - ci_changes
+    - stubgen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Verify validation contract
+      env:
+        CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        CI_EXPECTED_JOBS: '["stubgen"]'
+      run: 'python3 -m unittest discover -s .github/scripts -p test_ci_contract.py
+
+        python3 .github/scripts/ci_gate.py'
+'on':
+  push:
+    branches:
+    - main
+    - master  # blocklint: exact branch name pragma
+    paths:
+    - .github/workflows/stubgen.yaml
+    - faster_eth_abi/**.py
+    - pyproject.toml
+    - setup.py
+  pull_request:
+    branches:
+    - main
+    - master  # blocklint: exact branch name pragma
+    paths:
+    - '**'
+  workflow_dispatch: null

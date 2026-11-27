@@ -1,4 +1,6 @@
-from typing import Any
+from typing import (
+    Any,
+)
 
 def abbr(value: Any, limit: int = 79) -> str:
     """

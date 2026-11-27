@@ -1,12 +1,31 @@
-from eth_typing import HexAddress as HexAddress
-from eth_typing.abi import Decodable as Decodable, TypeStr as TypeStr
-from faster_eth_abi._codec import decode_c as decode_c, encode_c as encode_c
-from faster_eth_abi.decoding import ContextFramesBytesIO as ContextFramesBytesIO
+from typing import (
+    Any,
+    Iterable,
+    overload,
+)
+
+from eth_typing import (
+    HexAddress as HexAddress,
+)
+from eth_typing.abi import (
+    Decodable as Decodable,
+    TypeStr as TypeStr,
+)
+
+from faster_eth_abi._codec import (
+    decode_c as decode_c,
+    encode_c as encode_c,
+)
+from faster_eth_abi.decoding import (
+    ContextFramesBytesIO as ContextFramesBytesIO,
+)
 from faster_eth_abi.exceptions import (
     EncodingError as EncodingError,
     MultipleEntriesFound as MultipleEntriesFound,
 )
-from faster_eth_abi.registry import ABIRegistry as ABIRegistry
+from faster_eth_abi.registry import (
+    ABIRegistry as ABIRegistry,
+)
 from faster_eth_abi.typing import (
     AddressTypeStr as AddressTypeStr,
     BoolTypeStr as BoolTypeStr,
@@ -15,7 +34,6 @@ from faster_eth_abi.typing import (
     StringTypeStr as StringTypeStr,
     UintTypeStr as UintTypeStr,
 )
-from typing import Any, Iterable, overload
 
 DecodesToIntTypeStr = UintTypeStr | IntTypeStr
 
@@ -52,7 +70,6 @@ class ABIEncoder(BaseABICoder):
         :returns: The head-tail encoded binary representation of the python
             values in ``args`` as values of the ABI types in ``types``.
         """
-
     def is_encodable(self, typ: TypeStr, arg: Any) -> bool:
         """
         Determines if the python value ``arg`` is encodable as a value of the
@@ -66,7 +83,6 @@ class ABIEncoder(BaseABICoder):
         :returns: ``True`` if ``arg`` is encodable as a value of the ABI type
             ``typ``.  Otherwise, ``False``.
         """
-
     def is_encodable_type(self, typ: TypeStr) -> bool:
         """
         Returns ``True`` if values for the ABI type ``typ`` can be encoded by

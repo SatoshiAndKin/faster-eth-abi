@@ -1,202 +1,234 @@
 name: Tox
-
-on:
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'faster_eth_abi/**.py'
-      - 'tests/**.py'
-      - '.github/workflows/tox.yaml'
-      - '.github/workflows/tox-reviewed-linux.yaml'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - 'tox.ini'
-      - "!eth-abi-stubs/**"
-  schedule:
-    - cron: '0 11 * * *'
-  workflow_dispatch:
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
+  ci_changes:
+    name: Select validation paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_validation: ${{ steps.paths.outputs.run_validation }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - id: paths
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CI_INCLUDE_PATHS: '["faster_eth_abi/**.py", "tests/**.py", ".github/workflows/tox.yaml", ".github/workflows/tox-reviewed-linux.yaml",
+          "pyproject.toml", "setup.py", "tox.ini", "!eth-abi-stubs/**", "requirements*.txt"]'
+        CI_IGNORE_PATHS: '[]'
+      run: python3 .github/scripts/ci_changes.py
   test:
-    name: Test (${{ matrix.jobtype }}, 3.${{ matrix.pyminor }}, ${{ matrix.os }}, ${{ matrix.architecture }}, ${{ matrix.installmode }})
-    runs-on: ${{ matrix.os }}
+    name: Test (${{ matrix.jobtype }}, 3.${{ matrix.pyminor }}, ${{ matrix.os }}, ${{ matrix.architecture }}, ${{
+      matrix.installmode }})
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86' && 'ubuntu-24.04' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        jobtype: [core, wheel]
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        architecture: [x64, x86]
-        pyminor: ["10", "11", "12", "13", "13t", "14", "14t"]
-        installmode: [source, sdist]
+        jobtype:
+        - core
+        - wheel
+        os:
+        - ubuntu-latest
+        - macos-latest
+        - windows-latest
+        architecture:
+        - x64
+        - x86
+        pyminor:
+        - '10'
+        - '11'
+        - '12'
+        - '13'
+        - 13t
+        - '14'
+        - 14t
+        installmode:
+        - source
+        - sdist
         exclude:
-          # The owned Kata guest kernel cannot execute i386 Python yet.
-          - os: ubuntu-latest
-            architecture: x64
-          # Exclude x86 (32-bit) builds for macos, which doesn't support 32-bit at all
-          - os: macos-latest
-            architecture: x86
-          # If these tests work for x64 builds, x86 builds will work fine
-          - installmode: sdist
-            architecture: x86
-      # limit parallelism for cronjob, otherwise blast it
+        - os: ubuntu-latest
+          architecture: x64
+        - os: macos-latest
+          architecture: x86
+        - installmode: sdist
+          architecture: x86
       max-parallel: ${{ github.event_name == 'schedule' && 4 || 1000 }}
     env:
       IS_UBUNTU_32BIT: ${{ matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86' }}
       TOXENV: py3${{ matrix.pyminor }}-${{ matrix.jobtype }}
       TOX_RECREATE_FLAG: ${{ github.event_name == 'schedule' && '-r' || '' }}
-
+      PIP_CONSTRAINT: ${{ matrix.pyminor == '13t' && format('{0}/.github/constraints-py313t.txt', github.workspace)
+        || '' }}
+      PIP_BUILD_CONSTRAINT: ${{ matrix.pyminor == '13t' && format('{0}/.github/constraints-py313t.txt', github.workspace)
+        || '' }}
     steps:
-      - name: Checkout code and tests
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
+    - name: Checkout code and tests
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 1
+    - name: Run job in 32-bit Ubuntu Docker container
+      if: ${{ env.IS_UBUNTU_32BIT == 'true' }}
+      shell: bash
+      run: "set -euo pipefail\ndocker run --rm -i \\\n  -e TOXENV -e TOX_RECREATE_FLAG -e IS_UBUNTU_32BIT \\\n \
+        \ -v \"${{ github.workspace }}:/workspace\" -w /workspace \\\n  i386/python:3.${{ matrix.pyminor }} bash\
+        \ -se <<'CI_CONTAINER'\nset -euo pipefail\npython -m pip install --upgrade pip\npython -m pip install tox\n\
+        if [[ \"${{ matrix.jobtype }}\" == \"wheel\" ]]; then\n  python -m pip install \"build[virtualenv]\"\n \
+        \ python -m build --wheel\n  export WHEEL_PATH=\"$(find dist -name '*.whl' -print -quit)\"\n  if [[ -z \"\
+        $WHEEL_PATH\" ]]; then\n    echo \"No wheel artifact found in dist\"\n    exit 1\n  fi\n  rm -r faster_eth_abi\n\
+        fi\npython -m tox -e ${{ env.TOXENV }} ${{ env.TOX_RECREATE_FLAG }}\nCI_CONTAINER\n"
+      continue-on-error: ${{ matrix.pyminor == '13t' || matrix.pyminor == '14t' }}
+    - name: Set up Python (macos)
+      if: ${{ matrix.os == 'macos-latest' }}
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: 3.${{ matrix.pyminor }}
+        cache: pip
+        cache-dependency-path: 'setup.py
 
-      # Use i386/python Docker for all 32-bit Ubuntu jobs (TODO cache some of this)
-      - name: Run job in 32-bit Ubuntu Docker container
-        if: ${{ env.IS_UBUNTU_32BIT == 'true' }}
-        uses: addnab/docker-run-action@v3
-        with:
-          image: i386/python:3.${{ matrix.pyminor }}
-          shell: bash
-          options: -v ${{ github.workspace }}:/workspace -w /workspace
-          run: |
-            python -m pip install --upgrade pip
-            python -m pip install tox
-            if [[ "${{ matrix.jobtype }}" == "wheel" ]]; then
-              python -m pip install "build[virtualenv]"
-              python -m build --wheel
-              export WHEEL_PATH="$(find dist -name '*.whl' -print -quit)"
-              if [[ -z "$WHEEL_PATH" ]]; then
-                echo "No wheel artifact found in dist"
-                exit 1
-              fi
-              rm -r faster_eth_abi
-            fi
-            python -m tox -e ${{ env.TOXENV }} ${{ env.TOX_RECREATE_FLAG }}
-        # There are no prebuilt 32-bit freethreaded Python containers at the time of this commit, but
-        # we will keep these runners so they will activate on their own whenever such containers exist
-        continue-on-error: ${{ matrix.pyminor == '13t' || matrix.pyminor == '14t' }}
+          pyproject.toml
 
-      # No architecture specified for MacOS
-      - name: Set up Python (macos)
-        if: ${{ matrix.os == 'macos-latest' }}
-        uses: actions/setup-python@v7.0.0
-        with:
-          python-version: 3.${{ matrix.pyminor }}
-          cache: pip
-          cache-dependency-path: |
-            setup.py
-            pyproject.toml
-            tox.ini
+          tox.ini
 
-      # All other builds (64-bit Linux, 32-bit and 64-bit Windows)
-      - name: Set up Python
-        if: ${{ matrix.os != 'macos-latest' && env.IS_UBUNTU_32BIT != 'true' }}
-        uses: actions/setup-python@v7.0.0
-        with:
-          python-version: 3.${{ matrix.pyminor }}
-          architecture: ${{ matrix.architecture }}
-          cache: pip
-          cache-dependency-path: |
-            setup.py
-            pyproject.toml
-            tox.ini
+          .github/constraints-py313t.txt
 
-      - name: Build wheel with mypycify
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        uses: BobTheBuidler/mypycify@v0.5.1
-        with:
-          python-version: 3.${{ matrix.pyminor }}
-          python-architecture: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' && matrix.architecture || '' }}
-          hash-key: |
-            faster_eth_abi/**/*.py
-            pyproject.toml
-            setup.py
-            .github/mypycify-hash/${{ matrix.architecture }}.txt
-          build-from: ${{ matrix.installmode }}
-          pip-cache-dependency-path: |
-            pyproject.toml
-            setup.py
-            tox.ini
+          '
+    - name: Set up Python
+      if: ${{ matrix.os != 'macos-latest' && env.IS_UBUNTU_32BIT != 'true' }}
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: 3.${{ matrix.pyminor }}
+        architecture: ${{ matrix.architecture }}
+        cache: pip
+        cache-dependency-path: 'setup.py
 
-      - name: Restore Windows x86 Python
-        if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
-        uses: actions/setup-python@v7.0.0
-        with:
-          python-version: 3.${{ matrix.pyminor }}
-          architecture: ${{ matrix.architecture }}
+          pyproject.toml
 
-      - name: Validate Windows x86 Python
-        if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
-        run: python -c "import struct; bits = struct.calcsize('P') * 8; assert bits == 32, bits"
+          tox.ini
 
-      - name: Validate Windows x86 wheel tag
-        if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
-        shell: bash
-        run: |
-          shopt -s nullglob
-          wheels=(dist/*.whl)
-          if [[ "${#wheels[@]}" -ne 1 ]]; then
-            echo "Expected exactly one wheel in dist, found ${#wheels[@]}"
-            printf '%s\n' "${wheels[@]}"
-            exit 1
-          fi
-          wheel="${wheels[0]}"
-          if [[ "$wheel" != *-win32.whl ]]; then
-            echo "Expected Windows x86 wheel tagged win32, got: $wheel"
-            exit 1
-          fi
+          .github/constraints-py313t.txt
 
-      - name: Upgrade pip and install tox
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install tox
+          '
+    - name: Build wheel with mypycify
+      if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
+      uses: BobTheBuidler/mypycify@v0.5.1
+      with:
+        python-version: 3.${{ matrix.pyminor }}
+        python-architecture: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' && matrix.architecture
+          || '' }}
+        hash-key: 'faster_eth_abi/**/*.py
 
-      - name: Cache .mypy_cache
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        uses: actions/cache@v6
-        with:
-          path: .mypy_cache
-          key: mypy-cache-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('**/*.py', 'pyproject.toml') }}
+          pyproject.toml
 
-      - name: Cache tox environment and hypothesis examples
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        uses: actions/cache@v6
-        with:
-          path: |
-            .tox
-            .hypothesis
-          key: ${{ runner.os }}-tox-${{ hashFiles('pyproject.toml', 'setup.py', 'tox.ini') }}-3.${{ matrix.pyminor }}-${{ matrix.architecture }}-${{ matrix.jobtype }}
-          save-always: ${{ env.TOX_RECREATE_FLAG == '-r' }}
+          setup.py
 
-      - name: Remove Python files so wheel will be used
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        run: rm -r faster_eth_abi
+          .github/mypycify-hash/${{ matrix.architecture }}.txt
 
-      - name: Run tox
-        if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
-        run: |
-          shopt -s nullglob
-          wheels=(dist/*.whl)
-          if [[ "${#wheels[@]}" -ne 1 ]]; then
-            echo "Expected exactly one compiled wheel in dist, found ${#wheels[@]}"
-            exit 1
-          fi
-          WHEEL_PATH="${wheels[0]}"
-          if [[ "${{ matrix.jobtype }}" == "wheel" ]]; then
-            WHEEL_PATH="$WHEEL_PATH" python -m tox run ${{ env.TOX_RECREATE_FLAG }}
-          else
-            python -m tox run ${{ env.TOX_RECREATE_FLAG }} --installpkg="$WHEEL_PATH"
-          fi
-        shell: bash
+          .github/constraints-py313t.txt
 
+          '
+        build-from: ${{ matrix.installmode }}
+        pip-cache-dependency-path: 'pyproject.toml
+
+          setup.py
+
+          tox.ini
+
+          .github/constraints-py313t.txt
+
+          '
+    - name: Restore Windows x86 Python
+      if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: 3.${{ matrix.pyminor }}
+        architecture: ${{ matrix.architecture }}
+    - name: Validate Windows x86 Python
+      if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
+      run: python -c "import struct; bits = struct.calcsize('P') * 8; assert bits == 32, bits"
+    - name: Validate Windows x86 wheel tag
+      if: ${{ matrix.os == 'windows-latest' && matrix.architecture == 'x86' }}
+      shell: bash
+      run: "shopt -s nullglob\nwheels=(dist/*.whl)\nif [[ \"${#wheels[@]}\" -ne 1 ]]; then\n  echo \"Expected exactly\
+        \ one wheel in dist, found ${#wheels[@]}\"\n  printf '%s\\n' \"${wheels[@]}\"\n  exit 1\nfi\nwheel=\"${wheels[0]}\"\
+        \nif [[ \"$wheel\" != *-win32.whl ]]; then\n  echo \"Expected Windows x86 wheel tagged win32, got: $wheel\"\
+        \n  exit 1\nfi\n"
+    - name: Upgrade pip and install tox
+      if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
+      run: 'python -m pip install --upgrade pip
+
+        python -m pip install tox
+
+        '
+    - name: Cache .mypy_cache
+      if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
+      uses: actions/cache@v6
+      with:
+        path: .mypy_cache
+        key: mypy-cache-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('**/*.py', 'pyproject.toml') }}
+    - name: Cache tox environment and hypothesis examples
+      if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
+      uses: actions/cache@v6
+      with:
+        path: '.tox
+
+          .hypothesis
+
+          '
+        key: ${{ runner.os }}-tox-${{ hashFiles('pyproject.toml', 'setup.py', 'tox.ini', '.github/constraints-py313t.txt')
+          }}-3.${{ matrix.pyminor }}-${{ matrix.architecture }}-${{ matrix.jobtype }}
+        save-always: ${{ env.TOX_RECREATE_FLAG == '-r' }}
+    - name: Remove Python files so wheel will be used
+      if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
+      run: rm -r faster_eth_abi
+    - name: Run tox
+      if: ${{ env.IS_UBUNTU_32BIT != 'true' }}
+      run: "shopt -s nullglob\nwheels=(dist/*.whl)\nif [[ \"${#wheels[@]}\" -ne 1 ]]; then\n  echo \"Expected exactly\
+        \ one compiled wheel in dist, found ${#wheels[@]}\"\n  exit 1\nfi\nWHEEL_PATH=\"${wheels[0]}\"\nif [[ \"\
+        ${{ matrix.jobtype }}\" == \"wheel\" ]]; then\n  WHEEL_PATH=\"$WHEEL_PATH\" python -m tox run ${{ env.TOX_RECREATE_FLAG\
+        \ }}\nelse\n  python -m tox run ${{ env.TOX_RECREATE_FLAG }} --installpkg=\"$WHEEL_PATH\"\nfi\n"
+      shell: bash
+    needs:
+    - ci_changes
+    if: ${{ needs.ci_changes.outputs.run_validation == 'true' }}
   linux:
     permissions:
       contents: read
-    uses: SatoshiAndKin/faster-eth-abi/.github/workflows/tox-reviewed-linux.yaml@505764e9f22fbfd24a972a4e4fb68946151225bc
+    uses: SatoshiAndKin/faster-eth-abi/.github/workflows/tox-reviewed-linux.yaml@eb89c5e117f97304875d597b55c1de94c19c13cc
+    needs:
+    - ci_changes
+    if: ${{ needs.ci_changes.outputs.run_validation == 'true' }}
+  ci_gate:
+    name: CI (tox.yaml)
+    if: ${{ !cancelled() }}
+    needs:
+    - ci_changes
+    - test
+    - linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Verify validation contract
+      env:
+        CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        CI_EXPECTED_JOBS: '["test","linux"]'
+      run: 'python3 -m unittest discover -s .github/scripts -p test_ci_contract.py
+
+        python3 .github/scripts/ci_gate.py'
+'on':
+  pull_request:
+    paths:
+    - '**'
+    branches:
+    - master  # blocklint: exact branch name pragma
+  schedule:
+  - cron: 0 11 * * *
+  workflow_dispatch: null

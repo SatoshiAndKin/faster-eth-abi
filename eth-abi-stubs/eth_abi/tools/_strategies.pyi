@@ -1,5 +1,19 @@
-from _typeshed import Incomplete
-from eth_typing.abi import TypeStr as TypeStr
+from typing import (
+    Any,
+    Final,
+    TypeAlias,
+)
+
+from _typeshed import (
+    Incomplete,
+)
+from eth_typing.abi import (
+    TypeStr as TypeStr,
+)
+from hypothesis import (
+    strategies as st,
+)
+
 from faster_eth_abi._grammar import (
     ABIType as ABIType,
     Arrlist as Arrlist,
@@ -7,7 +21,9 @@ from faster_eth_abi._grammar import (
     TupleType as TupleType,
     normalize as normalize,
 )
-from faster_eth_abi.grammar import parse as parse
+from faster_eth_abi.grammar import (
+    parse as parse,
+)
 from faster_eth_abi.registry import (
     BaseEquals as BaseEquals,
     BaseRegistry as BaseRegistry,
@@ -16,9 +32,9 @@ from faster_eth_abi.registry import (
     has_arrlist as has_arrlist,
     is_base_tuple as is_base_tuple,
 )
-from faster_eth_abi.utils.numeric import scale_places as scale_places
-from hypothesis import strategies as st
-from typing import Any, Final, TypeAlias
+from faster_eth_abi.utils.numeric import (
+    scale_places as scale_places,
+)
 
 StrategyFactory: TypeAlias
 StrategyRegistration: TypeAlias
