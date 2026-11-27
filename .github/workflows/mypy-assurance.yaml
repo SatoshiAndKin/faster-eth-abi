@@ -55,10 +55,15 @@ jobs:
         '
     - name: Verify consumer check failure handling
       run: python -m unittest discover -s .github/scripts -p test_overload_runner.py
+    - name: Prepare installed consumer validation
+      run: python .github/scripts/prepare_consumer_workspace.py
+    - name: Verify sampled assertion coverage
+      working-directory: ${{ runner.temp }}/abi-consumer
+      run: python -m unittest discover -s .github/scripts -p test_overload_generation.py
     - name: Restore .mypy_cache
       uses: actions/cache/restore@v6
       with:
-        path: .mypy_cache
+        path: ${{ runner.temp }}/abi-consumer/.mypy_cache
         key: test-data-mypy-cache-${{ runner.os }}-x64-${{ matrix.impl }}-${{ matrix.suite }}
         restore-keys: 'mypy-cache-${{ runner.os }}-x64-${{ hashFiles(''**/*.py'', ''pyproject.toml'') }}
 
@@ -66,28 +71,36 @@ jobs:
 
           '
     - name: Generate test data for len_1
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
         1
     - name: Check all generated assertions for len_1
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 1
     - name: Generate test data for len_2
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
         2
     - name: Check all generated assertions for len_2
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 2
     - name: Generate test data for len_3 (sample 1/20)
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
         3 --sample-1-of-x 20
     - name: Check all generated assertions for len_3
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 3
     - name: Generate test data for len_4 (sample 1/300)
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/generate_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --lengths
         4 --sample-1-of-x 300
     - name: Check all generated assertions for len_4
+      working-directory: ${{ runner.temp }}/abi-consumer
       run: python scripts/run_overload_tests.py --impl ${{ matrix.impl }} --suite ${{ matrix.suite }} --length 4
     - name: Save .mypy_cache (always, even on failure)
       if: always()
       uses: actions/cache/save@v6
       with:
-        path: .mypy_cache
+        path: ${{ runner.temp }}/abi-consumer/.mypy_cache
         key: test-data-mypy-cache-${{ runner.os }}-x64-${{ matrix.impl }}-${{ matrix.suite }}

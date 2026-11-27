@@ -41,13 +41,11 @@ New options:
 """
 
 import argparse
-import itertools
 import json
 import math
 import pathlib
 import random
 import re
-import sys
 from typing import (
     Any,
     Dict,
@@ -263,7 +261,6 @@ VAR_TUPLE_ALIASES = {
 
 
 def build_alias_map() -> Dict[str, Any]:
-    sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
     import faster_eth_abi.typing
 
     alias_map = {}
@@ -366,6 +363,10 @@ print(f"Found {NUM_LITERALS} ABI type string literals (including fallback).")
 
 
 def get_expected_type_tuple(types: Tuple[str, ...]) -> str:
+    # The decoder declares positional overloads through length three. Longer
+    # tuples use the existing iterable overloads and retain their union type.
+    if len(types) > MAX_LEN_FIXED:
+        return get_expected_type_iterable(types)
     py_types = [ANY_ALIAS if t == "?" else RETURN_TYPE_MAP[t] for t in types]
     return f"{TUPLE_ALIAS}[{', '.join(py_types)}]"
 
@@ -398,6 +399,18 @@ def format_sequence_literal(case: Tuple[str, ...], opener: str, closer: str) -> 
     return f"{opener}{values}{closer}"
 
 
+def iter_case_chunk(length: int, chunk_index: int) -> Iterator[Tuple[str, ...]]:
+    """Select a product interval without enumerating the discarded combinations."""
+    start = (chunk_index - 1) * CHUNK_SIZE
+    stop = min(start + CHUNK_SIZE, NUM_LITERALS**length)
+    for ordinal in range(start, stop):
+        case = []
+        for _ in range(length):
+            ordinal, index = divmod(ordinal, NUM_LITERALS)
+            case.append(ALL_LITERALS[index])
+        yield tuple(reversed(case))
+
+
 def stream_cases_and_write_files(
     mode: Literal["fixed", "variable"],
     impl: Literal["abi", "codec"],
@@ -405,15 +418,15 @@ def stream_cases_and_write_files(
     seed: int = 42,
     lengths: List[int] = None,
 ) -> int:
-    FOLDER = "fixed" if mode == "fixed" else "variable"
+    folder = "fixed" if mode == "fixed" else "variable"
     if lengths is None:
-        MAX_LEN = MAX_LEN_FIXED if mode == "fixed" else MAX_LEN_VARIABLE
-        lengths = list(range(1, MAX_LEN + 1))
+        maximum = MAX_LEN_FIXED if mode == "fixed" else MAX_LEN_VARIABLE
+        lengths = list(range(1, maximum + 1))
 
     case_counter = 0
-
-    for L in lengths:
-        total_chunks = compute_total_chunks(L)
+    for length in lengths:
+        length_offset = case_counter
+        total_chunks = compute_total_chunks(length)
         chunk_indices = list(range(1, total_chunks + 1))
         if sample_1_of_x > 1:
             random.seed(seed)
@@ -422,78 +435,44 @@ def stream_cases_and_write_files(
 
         with tqdm(
             total=len(chunk_indices),
-            desc=f"Streaming {mode} chunks for {impl} (len_{L})",
+            desc=f"Streaming {mode} chunks for {impl} (len_{length})",
         ) as progress:
-            PATH_WITHOUT_NUMBER = (
-                f"tests/typecheck/{impl}/decode/{FOLDER}/len_{L}/{FILENAME_PREFIX}"
-            )
-            chunk_idx = 1
-            chunk_lines = []
-            file_counter = 0
-
-            def format_case(typestr: str, expected: str) -> str:
-                nonlocal case_counter, file_counter
-                comment = f"# {mode} case {case_counter}"
-                one_line = (
-                    f"{ASSERT_TYPE_ALIAS}({FUNC_ALIAS}({typestr}, {DATA_ALIAS}), "
-                    f"{expected})  {comment}"
+            for chunk_index in chunk_indices:
+                case_counter = length_offset + (chunk_index - 1) * CHUNK_SIZE
+                chunk_lines = []
+                for case in iter_case_chunk(length, chunk_index):
+                    if mode == "fixed":
+                        typestr = format_sequence_literal(case, "(", ")")
+                        expected = get_expected_type_tuple(case)
+                    else:
+                        typestr = format_sequence_literal(case, "[", "]")
+                        expected = get_expected_type_iterable(case)
+                    comment = f"# {mode} case {case_counter}"
+                    one_line = (
+                        f"{ASSERT_TYPE_ALIAS}({FUNC_ALIAS}({typestr}, {DATA_ALIAS}), "
+                        f"{expected})  {comment}"
+                    )
+                    if len(one_line) <= 88:
+                        chunk_lines.append(f"{one_line}\n")
+                    else:
+                        chunk_lines.append(
+                            f"{ASSERT_TYPE_ALIAS}(\n"
+                            f"    {FUNC_ALIAS}({typestr}, {DATA_ALIAS}),\n"
+                            f"    {expected},\n"
+                            f")  {comment}\n"
+                        )
+                    case_counter += 1
+                path = pathlib.Path(
+                    f"tests/typecheck/{impl}/decode/{folder}/len_{length}/"
+                    f"{FILENAME_PREFIX}{chunk_index:05d}.py"
                 )
-                case_counter += 1
-                file_counter += 1
-                if len(one_line) <= 88:
-                    return f"{one_line}\n"
-                return (
-                    f"{ASSERT_TYPE_ALIAS}(\n"
-                    f"    {FUNC_ALIAS}({typestr}, {DATA_ALIAS}),\n"
-                    f"    {expected},\n"
-                    f")  {comment}\n"
-                )
-
-            if mode == "fixed":
-
-                def addline(
-                    case: Tuple[str, ...],
-                    chunk_lines: List[str] = chunk_lines,
-                ) -> None:
-                    typestr = format_sequence_literal(case, "(", ")")
-                    expected = get_expected_type_tuple(case)
-                    chunk_lines.append(format_case(typestr, expected))
-
-            else:
-
-                def addline(
-                    case: Tuple[str, ...],
-                    chunk_lines: List[str] = chunk_lines,
-                ) -> None:
-                    typestr = format_sequence_literal(case, "[", "]")
-                    expected = get_expected_type_iterable(case)
-                    chunk_lines.append(format_case(typestr, expected))
-
-            def write_file(
-                chunk_indices: List[int] = chunk_indices,
-                path_without_number: str = PATH_WITHOUT_NUMBER,
-                chunk_lines: List[str] = chunk_lines,
-            ) -> None:
-                nonlocal chunk_idx
-                if chunk_idx in chunk_indices:
-                    path = pathlib.Path(f"{path_without_number}{chunk_idx:05d}.py")
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    with open(path, "w") as f:
-                        f.write(HEADER_ABI if impl == "abi" else HEADER_CODEC)
-                        f.writelines(chunk_lines)
-                    progress.update(1)
-                chunk_idx += 1
-                chunk_lines.clear()
-
-            for combo in itertools.product(ALL_LITERALS, repeat=L):
-                if file_counter and file_counter % CHUNK_SIZE == 0:
-                    write_file()
-                addline(combo)
-
-            if chunk_lines:
-                write_file()
-
-            print(f"finished generating cases for length {L}")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("w") as output:
+                    output.write(HEADER_ABI if impl == "abi" else HEADER_CODEC)
+                    output.writelines(chunk_lines)
+                progress.update(1)
+        case_counter = length_offset + NUM_LITERALS**length
+        print(f"finished generating cases for length {length}")
 
     return case_counter
 

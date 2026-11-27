@@ -50,6 +50,8 @@ def run_checks(root, impl, suite, length, run=subprocess.run):
     files = sorted(directory.glob("*.py"))
     if not files:
         raise ValueError(f"No type assertion files found in {directory}")
+    if length == 1:
+        files.extend(root / name for name in profile.get("boundary_files", []))
     workers = profile["workers"][str(length)]
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = pool.map(
